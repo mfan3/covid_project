@@ -10,7 +10,7 @@ output:
 ```{r setup, include=TRUE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-# Introduction # I added something else
+# Introduction # I added something else #ok
 In this file, we cleaned and explored our following datasets:   
 - **CDC Social Vulnerability Index/SVI (2018)**: https://www.atsdr.cdc.gov/placeandhealth/svi/data_documentation_download.html  
 - **JHU covid data (curren)**: https://github.com/CSSEGISandData/COVID-19  
