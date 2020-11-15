@@ -11,7 +11,7 @@ output:
 ```{r setup, include=TRUE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-# Introduction # I added something else #ok
+# Introduction
 In this file, we cleaned and explored our following datasets:   
 - **CDC Social Vulnerability Index/SVI (2018)**: https://www.atsdr.cdc.gov/placeandhealth/svi/data_documentation_download.html  
 - **JHU covid data (curren)**: https://github.com/CSSEGISandData/COVID-19  
@@ -177,10 +177,20 @@ covid.death <- covid.death.raw %>%
   filter(state %in% c(state.name, "District of Columbia")) %>% 
   group_by(state) %>% 
   mutate(death.cases = cumulative.death.cases - lag(cumulative.death.cases),
-         date = as.Date(date, format = "%m/%d/%y"), 
+         date = as.Date(date, format = "%m/%d/%y"),
          month = match(months(date), month.name),
          death.cases = replace_na(death.cases, 0))
-  
+
+# fix negative cumulative cases
+while (any(covid.death$death.cases < 0)) {
+  covid.death <- covid.death %>% 
+    mutate(cumulative.death.cases = ifelse(cumulative.death.cases < lag(cumulative.death.cases), 
+                                         lag(cumulative.death.cases), # if smaller than previous
+                                         cumulative.death.cases), # if not
+           death.cases = cumulative.death.cases - lag(cumulative.death.cases),
+           death.cases = replace_na(death.cases, 0))
+}
+
 covid.deaths <- covid.death[c(1, 2, 3, 6, 4, 5)]
 ```
 
@@ -205,6 +215,16 @@ covid.confirmed <- covid.confirmed.raw %>%
   mutate(confirmed.cases = cumulative.confirmed.cases - lag(cumulative.confirmed.cases),
          date = as.Date(date, format = "%m/%d/%y"), 
          confirmed.cases = replace_na(confirmed.cases, 0))
+
+# fix negative cumulative cases
+while (any(covid.confirmed$confirmed.cases < 0)) {
+  covid.confirmed <- covid.confirmed %>% 
+    mutate(cumulative.confirmed.cases = ifelse(cumulative.confirmed.cases < lag(cumulative.confirmed.cases), 
+                                         lag(cumulative.confirmed.cases), # if smaller than previous
+                                         cumulative.confirmed.cases), # if not
+           confirmed.cases = cumulative.confirmed.cases - lag(cumulative.confirmed.cases),
+           confirmed.cases = replace_na(confirmed.cases, 0))
+}
 
 # combining death and confirmed into one dataset
 covid <- covid.deaths %>% inner_join(covid.confirmed, by = c("state","date"))
