@@ -1,6 +1,6 @@
 ---
 title: "covid project preliminary analysis"
-author: Alaric Xiangyu Wei, Eva Yuchen Liu, Jenny Hyojeong Yoo, Juanshu(Sky) Wu, Muqing Fan
+author: Hyojeong(Jenny) Yoo, Juanshu(Sky) Wu, Muqing Fan, Xiangyu(Alaric) Wei, Yuchen(Eva) Liu   
 output:
   html_document:
     toc: true
@@ -32,7 +32,7 @@ library(dplyr)
 
 selecting relevant indices (refer to codebook)
 ```{r, message=FALSE}
-svi.raw <- read_csv("SVI2018_US_COUNTY.csv")
+svi.raw <- read_csv("./datasets/SVI2018_US_COUNTY.csv")
 svi.raw %>% 
   select(STATE,
          COUNTY,
@@ -114,7 +114,7 @@ svi.state %>%
 
 ## Data cleaning for unemployment data
 ```{r, message=FALSE, warning=FALSE}
-unemployment.2020.raw <- read_csv("unemployment2020.csv")
+unemployment.2020.raw <- read_csv("./datasets/unemployment2020.csv")
 unemployment.2020.data <- 
   unemployment.2020.raw[,colSums(is.na(unemployment.2020.raw))<nrow(unemployment.2020.raw)]
 unemployment.2020 <- na.omit(unemployment.2020.data)
@@ -158,7 +158,7 @@ unemployments <- unemployment[c(2, 3, 1, 4)]
 
 loading JHU covid death historical dateset
 ```{r, message=FALSE}
-covid.death.raw <- read_csv("./csse_covid_19_time_series/time_series_covid19_deaths_US.csv")
+covid.death.raw <- read_csv("./datasets/csse_covid_19_time_series/time_series_covid19_deaths_US.csv")
 # glimpse(covid.death.raw)
 ```
 
@@ -186,7 +186,7 @@ covid.deaths <- covid.death[c(1, 2, 3, 6, 4, 5)]
 
 loading JHU covid confirmed historical dateset
 ```{r, message=FALSE}
-covid.confirmed.raw <- read_csv("./csse_covid_19_time_series/time_series_covid19_confirmed_US.csv")
+covid.confirmed.raw <- read_csv("./datasets/csse_covid_19_time_series/time_series_covid19_confirmed_US.csv")
 # glimpse(covid.confirmed.raw)
 ```
 
@@ -214,7 +214,7 @@ Looping through dates
 ```{r, message=FALSE}
 dates <- format(seq(from = as.Date("2020/04/13"), to = as.Date("2020/10/24"), by = "day"), "%m-%d-%Y")
 date = "04-12-2020"
-reports.raw <- read_csv(paste("./csse_covid_19_daily_reports_us/", date, ".csv", sep = ""))
+reports.raw <- read_csv(paste("./datasets/csse_covid_19_daily_reports_us/", date, ".csv", sep = ""))
 report <- reports.raw %>%
   select(-c(Country_Region, Last_Update, Lat, Long_, Confirmed, Deaths, FIPS, UID, ISO3)) %>% 
   rename(state = Province_State,
@@ -237,7 +237,7 @@ report <- reports.raw %>%
 
 
 for (date in dates){
-  reports.raw <- read_csv(paste("./csse_covid_19_daily_reports_us/", date, ".csv", sep = ""))
+  reports.raw <- read_csv(paste("./datasets/csse_covid_19_daily_reports_us/", date, ".csv", sep = ""))
   rpt <- reports.raw %>%
     select(-c(Country_Region, Last_Update, Lat, Long_, Confirmed, Deaths, FIPS, UID, ISO3)) %>% 
     rename(state = Province_State,
@@ -274,7 +274,7 @@ covid.time.series <- covid %>% full_join(reports, by = c("state","date"))
 
 Importing Google mobility dataset
 ```{r}
-US_Region_2020_mobility <- read.csv( "2020_US_Region_Mobility_Report.csv", header=T, na.strings=c("","NA"))
+US_Region_2020_mobility <- read.csv( "./datasets/2020_US_Region_Mobility_Report.csv", header=T, na.strings=c("","NA"))
 ```
 
 Cleaning mobility dataset
@@ -1606,6 +1606,15 @@ svi.pci.w <- svi.state_West %>%
 ### New Mexico data missing
 ```
 
+# linear regression analysis 
+
+```{r}
+poverty.high <- arrange(svi.state, desc(svi.state$poverty.rate))
+poverty.high.state <- c(poverty.high$STATE[1:10])
+
+```
+
+
 # Graphs 
 ## Cumulative death cases
 ```{r}
@@ -1623,7 +1632,7 @@ covid.confirm.south
 covid.confirm.west
 ```
 
-## Testing rates: 
+## Testing rates
 ```{r}
 covid.test.rate.midwest
 covid.test.rate.northeast
@@ -1631,7 +1640,7 @@ covid.test.rate.south
 covid.test.rate.west
 ```
 
-## Psitive testing rates
+## Positive testing rates
 ```{r}
 covid.incident.rate.midwest 
 covid.incident.rate.northeast
