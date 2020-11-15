@@ -1,11 +1,12 @@
 ---
 title: "covid project preliminary analysis"
-author: Alaric Xiangyu Wei, Eva Yuchen Liu, Jenny Hyojeong Yoo, Juanshu Wu, Muqing Fan
+author: Alaric Xiangyu Wei, Eva Yuchen Liu, Jenny Hyojeong Yoo, Juanshu(Sky) Wu, Muqing Fan
 output:
   html_document:
     toc: true
     theme: united
 ---
+
 
 ```{r setup, include=TRUE}
 knitr::opts_chunk$set(echo = TRUE)
