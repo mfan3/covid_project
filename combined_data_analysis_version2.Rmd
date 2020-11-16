@@ -185,8 +185,9 @@ covid.death <- covid.death.raw %>%
 while (any(covid.death$death.cases < 0)) {
   covid.death <- covid.death %>% 
     mutate(cumulative.death.cases = ifelse(cumulative.death.cases < lag(cumulative.death.cases), 
-                                         lag(cumulative.death.cases), # if smaller than previous
-                                         cumulative.death.cases), # if not
+                                           lag(cumulative.death.cases), # if smaller than previous
+                                           cumulative.death.cases), # if not
+           cumulative.death.cases = replace_na(cumulative.death.cases, 0),
            death.cases = cumulative.death.cases - lag(cumulative.death.cases),
            death.cases = replace_na(death.cases, 0))
 }
@@ -222,6 +223,7 @@ while (any(covid.confirmed$confirmed.cases < 0)) {
     mutate(cumulative.confirmed.cases = ifelse(cumulative.confirmed.cases < lag(cumulative.confirmed.cases), 
                                          lag(cumulative.confirmed.cases), # if smaller than previous
                                          cumulative.confirmed.cases), # if not
+           cumulative.confirmed.cases = replace_na(cumulative.confirmed.cases, 0),
            confirmed.cases = cumulative.confirmed.cases - lag(cumulative.confirmed.cases),
            confirmed.cases = replace_na(confirmed.cases, 0))
 }
@@ -304,7 +306,7 @@ Cleaning mobility dataset
 US_State_2020_mobility<- US_Region_2020_mobility %>% filter(sub_region_1 != "Null")
 US_State_2020_mobility_without_county <- US_State_2020_mobility %>% filter(iso_3166_2_code != "Null")
 
-unique(US_State_2020_mobility_without_county$sub_region_1)
+# unique(US_State_2020_mobility_without_county$sub_region_1)
 US_State_2020_mobility_without_county$date <- as.Date(US_State_2020_mobility_without_county$date, "%m/%d/%y")
 
 
@@ -1132,7 +1134,6 @@ unemploy.mw <- unemployment_Midwest %>%
   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
   scale_y_continuous(expand=c(0,1), breaks=seq(-60,60,5), limits=c(0,30),
                      labels=as.character(seq(-60,60,5)))+
-  ylim(0, 30)+
   ylab("Unemployment Rate") +
   xlab("Month") + 
   ggtitle("2020 Unemployment Rate in Midwest US") + 
@@ -1150,7 +1151,6 @@ unemploy.ne <- unemployment_Northeast %>%
   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
   scale_y_continuous(expand=c(0,1), breaks=seq(-60,60,5), limits=c(0,30),
                      labels=as.character(seq(-60,60,5)))+
-  ylim(0, 30)+
   ylab("Unemployment Rate") +
   xlab("Month") + 
   ggtitle("2020 Unemployment Rate in Northeast US") + 
@@ -1168,7 +1168,6 @@ unemploy.s <- unemployment_South %>%
   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
   scale_y_continuous(expand=c(0,1), breaks=seq(-60,60,5), limits=c(0,30),
                      labels=as.character(seq(-60,60,5)))+
-  ylim(0, 30)+
   ylab("Unemployment Rate") +
   xlab("Month") + 
   ggtitle("2020 Unemployment Rate in South US") + 
