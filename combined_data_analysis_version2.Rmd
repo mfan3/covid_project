@@ -239,7 +239,7 @@ report <- reports.raw %>%
   select(-c(Country_Region, Last_Update, Lat, Long_, Confirmed, Deaths, FIPS, UID, ISO3)) %>% 
   rename(state = Province_State,
          recovered.cases = Recovered,
-         active.cases = Active,
+         active.cases = Active, 
          incident.rate = Incident_Rate, # positive results per 100,000 persons.
          people.tested = People_Tested,
          people.hospitalized = People_Hospitalized,
@@ -281,7 +281,9 @@ for (date in dates){
 
 reports <- report[c(1, 6, 7, 2, 3, 4, 5)][order(report$state, report$date),]
 
-covid.time.series <- covid %>% full_join(reports, by = c("state","date"))
+covid.time.series <- covid %>% 
+  full_join(reports, by = c("state","date")) %>% 
+  mutate(active.rates = 100*(active.cases / population)) # added normalized active rates
 
 # covid.time.series <- reports
 # View(covid.time.series)
@@ -1628,11 +1630,39 @@ svi.pci.w <- svi.state_West %>%
 
 # linear regression analysis 
 
+Create SVI & mortality rates data frame with mortality rates calculated by cumulative death over cumulative confirmed 
 ```{r}
-poverty.high <- arrange(svi.state, desc(svi.state$poverty.rate))
-poverty.high.state <- c(poverty.high$STATE[1:10])
+svi.analysis <- svi.state %>%
+  select(c(STATE, poverty.rate, per.capita, no.HS.rate, age65.rate, disabled.rate, minority.rate, uninsured.rate)) %>%
+  mutate(state = STATE)
 
+covid.mortality <- covid.time.series %>%
+  filter(date == as.Date("2020-10-24")) %>%
+  mutate(mortality.avg = (cumulative.death.cases / cumulative.confirmed.cases)*100) %>%
+  select(state, mortality.avg)
+
+svi.mortality <- svi.analysis %>%
+  inner_join(covid.mortality, by = "state") %>%
+  select(-state)
 ```
+
+Create mobility & active rates data frame with active rates calculated by active cases over total population with a lag of 5 days 
+```{r}
+covid.active <- covid.time.series %>% 
+  select(c(state, date, active.rates)) %>%
+  mutate(lag.active.rates = date - 5) 
+
+mobility.active <- merge(StateMonthMobility, covid.active, by.x = c("sub_region_1", "date"), by.y = c("state", "lag.active.rates"))
+mobility.active <- mobility.active %>%
+  mutate(state = sub_region_1) %>%
+  select(c(state, date, retail_and_recreation_percent_change_from_baseline, grocery_and_pharmacy_percent_change_from_baseline, 
+         parks_percent_change_from_baseline, transit_stations_percent_change_from_baseline, workplaces_percent_change_from_baseline,
+         residential_percent_change_from_baseline, active.rates)) %>% 
+  filter(date >= as.Date("2020-04-07"))
+```
+
+
+
 
 
 # Graphs 
