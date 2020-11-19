@@ -1647,17 +1647,55 @@ svi.mortality <- svi.analysis %>%
 
 Create mobility & active rates data frame with active rates calculated by active cases over total population with a lag of 5 days 
 ```{r}
-covid.active <- covid.time.series %>% 
-  select(c(state, date, active.rates)) %>%
-  mutate(lag.active.rates = date - 5) 
 
-mobility.active <- merge(StateMonthMobility, covid.active, by.x = c("sub_region_1", "date"), by.y = c("state", "lag.active.rates"))
+# making changing rates of covid active data 
+covid.active.diff <- covid.time.series %>% 
+  select(c(state, date, active.rates)) %>%
+  group_by(state) %>%
+  mutate(active.changes = active.rates - lag(active.rates))
+
+# potential complications of different baselines for each day in the week
+# making changing rates of mobility data 
+mobility.change <- StateMonthMobility %>%
+  mutate(check.parks = parks_percent_change_from_baseline, 
+         check.transit = transit_stations_percent_change_from_baseline) %>% 
+  fill(parks_percent_change_from_baseline) %>%
+  fill(transit_stations_percent_change_from_baseline) %>%
+  mutate(retail.recration.diff = retail_and_recreation_percent_change_from_baseline - lag(retail_and_recreation_percent_change_from_baseline),
+         grocery.pharmacy.diff = grocery_and_pharmacy_percent_change_from_baseline - lag(grocery_and_pharmacy_percent_change_from_baseline),
+         parks.diff = parks_percent_change_from_baseline - lag(parks_percent_change_from_baseline),
+         transit.diff = transit_stations_percent_change_from_baseline - lag(transit_stations_percent_change_from_baseline),
+         workplaces.diff = workplaces_percent_change_from_baseline - lag(workplaces_percent_change_from_baseline),
+         residential.diff = residential_percent_change_from_baseline - lag(residential_percent_change_from_baseline)) %>% 
+  mutate(parks.diff = ifelse(is.na(check.parks), NA, parks.diff),
+         transit.diff = ifelse(is.na(check.transit), NA, transit.diff))
+
+
+sum(is.na(mobility.change1$parks.diff))
+sum(is.na(mobility.change$parks_percent_change_from_baseline))
+
+# parks 440 NA
+# transit 135 NA
+
+
+mobility.active <- merge(mobility.change, covid.active.diff, by.x = c("sub_region_1", "date"), by.y = c("state", "date"))
 mobility.active <- mobility.active %>%
   mutate(state = sub_region_1) %>%
-  select(c(state, date, retail_and_recreation_percent_change_from_baseline, grocery_and_pharmacy_percent_change_from_baseline, 
-         parks_percent_change_from_baseline, transit_stations_percent_change_from_baseline, workplaces_percent_change_from_baseline,
-         residential_percent_change_from_baseline, active.rates)) %>% 
-  filter(date >= as.Date("2020-04-07"))
+  select(c(state, date, retail.recration.diff, grocery.pharmacy.diff, parks.diff, transit.diff, workplaces.diff, residential.diff, active.changes)) %>% 
+  filter(date >= as.Date("2020-04-13")) %>% 
+  mutate(month = months(date)) %>%
+  group_by(state, month) %>%
+  summarise(active.avg = mean(active.changes),
+            retail.recreation.avg = mean(retail.recration.diff),
+            grocery.pharmacy.avg = mean(grocery.pharmacy.diff), 
+            parks.avg = mean(parks.diff, na.rm=TRUE), 
+            transit.avg = mean(transit.diff, na.rm=TRUE),
+            workplace.avg = mean(workplaces.diff),
+            residential.avg = mean(residential.diff))
+# change to bi-weekly later
+# use SVI to pick out top n and bottom n states 
+# within these states, do state by state mobility ~ covid lm 
+
 ```
 
 
