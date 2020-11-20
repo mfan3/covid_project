@@ -1691,7 +1691,8 @@ mobility.active <- mobility.active %>%
             parks.avg = mean(parks.diff, na.rm=TRUE), 
             transit.avg = mean(transit.diff, na.rm=TRUE),
             workplace.avg = mean(workplaces.diff),
-            residential.avg = mean(residential.diff))
+            residential.avg = mean(residential.diff)) 
+# need to marking off public holidays 
 # change to bi-weekly later
 # use SVI to pick out top n and bottom n states 
 # within these states, do state by state mobility ~ covid lm 
