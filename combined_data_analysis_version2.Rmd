@@ -1647,7 +1647,7 @@ svi.mortality <- svi.analysis %>%
 
 Create mobility & active rates data frame with active rates calculated by active cases over total population with a lag of 5 days 
 ```{r}
-
+library(lubridate)
 # making changing rates of covid active data 
 covid.active.diff <- covid.time.series %>% 
   select(c(state, date, active.rates)) %>%
@@ -1659,8 +1659,8 @@ covid.active.diff <- covid.time.series %>%
 mobility.change <- StateMonthMobility %>%
   mutate(check.parks = parks_percent_change_from_baseline, 
          check.transit = transit_stations_percent_change_from_baseline) %>% 
-  fill(parks_percent_change_from_baseline) %>%
-  fill(transit_stations_percent_change_from_baseline) %>%
+#  fill(parks_percent_change_from_baseline) %>%
+#  fill(transit_stations_percent_change_from_baseline) %>%
   mutate(retail.recration.diff = retail_and_recreation_percent_change_from_baseline - lag(retail_and_recreation_percent_change_from_baseline),
          grocery.pharmacy.diff = grocery_and_pharmacy_percent_change_from_baseline - lag(grocery_and_pharmacy_percent_change_from_baseline),
          parks.diff = parks_percent_change_from_baseline - lag(parks_percent_change_from_baseline),
@@ -1671,7 +1671,7 @@ mobility.change <- StateMonthMobility %>%
          transit.diff = ifelse(is.na(check.transit), NA, transit.diff))
 
 
-sum(is.na(mobility.change1$parks.diff))
+sum(is.na(mobility.change$parks.diff))
 sum(is.na(mobility.change$parks_percent_change_from_baseline))
 
 # parks 440 NA
@@ -1679,23 +1679,179 @@ sum(is.na(mobility.change$parks_percent_change_from_baseline))
 
 
 mobility.active <- merge(mobility.change, covid.active.diff, by.x = c("sub_region_1", "date"), by.y = c("state", "date"))
+# active rates df
 mobility.active <- mobility.active %>%
   mutate(state = sub_region_1) %>%
-  select(c(state, date, retail.recration.diff, grocery.pharmacy.diff, parks.diff, transit.diff, workplaces.diff, residential.diff, active.changes)) %>% 
+  select(c(state, date, retail_and_recreation_percent_change_from_baseline, grocery_and_pharmacy_percent_change_from_baseline, parks_percent_change_from_baseline, transit_stations_percent_change_from_baseline, workplaces_percent_change_from_baseline, residential_percent_change_from_baseline, active.rates)) %>% 
   filter(date >= as.Date("2020-04-13")) %>% 
-  mutate(month = months(date)) %>%
-  group_by(state, month) %>%
-  summarise(active.avg = mean(active.changes),
-            retail.recreation.avg = mean(retail.recration.diff),
-            grocery.pharmacy.avg = mean(grocery.pharmacy.diff), 
-            parks.avg = mean(parks.diff, na.rm=TRUE), 
-            transit.avg = mean(transit.diff, na.rm=TRUE),
-            workplace.avg = mean(workplaces.diff),
-            residential.avg = mean(residential.diff)) 
+  mutate(month = months(date), 
+         week = format(date, format = '%W'),
+         # the following code converts to biweekly
+         biweek = 14 * (as.numeric(date - min(date)) %/% 14) + min(date)) %>%
+  group_by(state, biweek) %>%
+  summarise(active.avg = mean(active.rates),
+            retail.recreation.avg = mean(retail_and_recreation_percent_change_from_baseline),
+            grocery.pharmacy.avg = mean(grocery_and_pharmacy_percent_change_from_baseline), 
+            parks.avg = mean(parks_percent_change_from_baseline, na.rm=TRUE), 
+            transit.avg = mean(transit_stations_percent_change_from_baseline, na.rm=TRUE),
+            workplace.avg = mean(workplaces_percent_change_from_baseline),
+            residential.avg = mean(residential_percent_change_from_baseline)) 
+
 # need to marking off public holidays 
 # change to bi-weekly later
 # use SVI to pick out top n and bottom n states 
 # within these states, do state by state mobility ~ covid lm 
+
+```
+
+Linear regression
+```{r}
+svi.crit = 10
+
+# poverty rates
+svi.pov.top <- svi.mortality %>%
+  slice_max(poverty.rate, n = svi.crit)
+svi.pov.bottom <- svi.mortality %>%
+  slice_min(poverty.rate, n = svi.crit)
+
+svi.pov.top.states <- svi.pov.top$STATE
+svi.pov.bottom.states <- svi.pov.bottom$STATE 
+
+pov.mortality.top.lm <- lm(mortality.avg ~ poverty.rate, svi.pov.top)
+pov.mortality.top.sum <- summary(pov.mortality.top.lm)
+pov.mortality.bottom.lm <- lm(mortality.avg ~ poverty.rate, svi.pov.bottom)
+pov.mortality.bottom.sum <- summary(pov.mortality.bottom.lm)
+
+
+# per capita 
+svi.pci.top <- svi.mortality %>%
+  slice_max(per.capita, n = svi.crit)
+svi.pci.bottom <- svi.mortality %>%
+  slice_min(per.capita, n = svi.crit)
+
+svi.pci.top.states <- svi.pci.top$STATE
+svi.pci.bottom.states <- svi.pci.bottom$STATE 
+
+pci.mortality.top.lm <- lm(mortality.avg ~ per.capita, svi.pci.top)
+pci.mortality.top.sum <- summary(pov.mortality.top.lm)
+pci.mortality.bottom.lm <- lm(mortality.avg ~ per.capita, svi.pci.bottom)
+pci.mortality.bottom.sum <- summary(pci.mortality.bottom.lm)
+
+
+# no HS rates 
+svi.noHS.top <- svi.mortality %>%
+  slice_max(no.HS.rate, n = svi.crit)
+svi.noHS.bottom <- svi.mortality %>%
+  slice_min(no.HS.rate, n = svi.crit)
+
+svi.noHS.top.states <- svi.noHS.top$STATE
+svi.noHS.bottom.states <- svi.noHS.bottom$STATE 
+
+noHS.mortality.top.lm <- lm(mortality.avg ~ no.HS.rate, svi.noHS.top)
+noHS.mortality.top.sum <- summary(noHS.mortality.top.lm)
+noHS.mortality.bottom.lm <- lm(mortality.avg ~ no.HS.rate, svi.noHS.bottom)
+noHS.mortality.bottom.sum <- summary(noHS.mortality.bottom.lm)
+
+
+
+# age 65/elderly rates 
+svi.age.top <- svi.mortality %>%
+  slice_max(age65.rate, n = svi.crit)
+svi.age.bottom <- svi.mortality %>%
+  slice_min(age65.rate, n = svi.crit)
+
+svi.age.top.states <- svi.age.top$STATE
+svi.age.bottom.states <- svi.age.bottom$STATE
+
+age.mortality.top.lm <- lm(mortality.avg ~ age65.rate, svi.age.top)
+age.mortality.top.sum <- summary(age.mortality.top.lm)
+age.mortality.bottom.lm <- lm(mortality.avg ~ age65.rate, svi.age.bottom)
+age.mortality.bottom.sum <- summary(age.mortality.bottom.lm)
+# age bottom
+
+
+# disabled rate
+svi.disabled.top <- svi.mortality %>%
+  slice_max(disabled.rate, n = svi.crit)
+svi.disabled.bottom <- svi.mortality %>%
+  slice_min(disabled.rate, n = svi.crit)
+
+svi.disabled.top.states <- svi.disabled.top$STATE
+svi.disabled.bottom.states <- svi.disabled.bottom$STATE 
+
+disabled.mortality.top.lm <- lm(mortality.avg ~ disabled.rate, svi.disabled.top)
+disabled.mortality.top.sum <- summary(disabled.mortality.top.lm)
+disabled.mortality.bottom.lm <- lm(mortality.avg ~ disabled.rate, svi.disabled.bottom)
+disabled.mortality.bottom.sum <- summary(disabled.mortality.bottom.lm)
+
+
+# minority 
+svi.minority.top <- svi.mortality %>%
+        slice_max(minority.rate, n = svi.crit)
+svi.minority.bottom <- svi.mortality %>%
+        slice_min(minority.rate, n = svi.crit)
+
+svi.minority.top.states <- svi.minority.top$STATE
+svi.minority.bottom.states <- svi.minority.bottom$STATE
+
+minority.mortality.top.lm <- lm(mortality.avg ~ minority.rate, svi.minority.top)
+minority.mortality.top.sum <- summary(minority.mortality.top.lm)
+minority.mortality.bottom.lm <- lm(mortality.avg ~ minority.rate, svi.minority.bottom)
+minority.mortality.bottom.sum <- summary(minority.mortality.bottom.lm)
+# minority bottom
+
+
+# uninsured rates 
+svi.uninsured.top <- svi.mortality %>%
+        slice_max(uninsured.rate, n = svi.crit)
+svi.uninsured.bottom <- svi.mortality %>%
+        slice_min(uninsured.rate, n = svi.crit)
+
+svi.uninsured.top.states <- svi.uninsured.top$STATE
+svi.uninsured.bottom.states <- svi.uninsured.bottom$STATE
+
+uninsured.mortality.top.lm <- lm(mortality.avg ~ uninsured.rate, svi.uninsured.top)
+uninsured.mortality.top.sum <- summary(uninsured.mortality.top.lm)
+uninsured.mortality.bottom.lm <- lm(mortality.avg ~ uninsured.rate, svi.uninsured.bottom)
+uninsured.mortality.bottom.sum <- summary(uninsured.mortality.bottom.lm)
+
+svi.top.states <- table(c(svi.pov.top.states, svi.pci.bottom.states, svi.noHS.top.states, svi.age.top.states, svi.disabled.top.states, svi.minority.top.states, svi.uninsured.top.states)) 
+svi.top.overlap.states <- sort(svi.top.states, decreasing=T)[1:5]
+
+svi.bottom.states <- table(c(svi.pov.bottom.states, svi.pci.top.states, svi.noHS.bottom.states, svi.age.bottom.states, svi.disabled.bottom.states, svi.minority.bottom.states, svi.uninsured.bottom.states)) 
+svi.bottom.overlap.states <- sort(svi.bottom.states, decreasing=T)[1:6]
+
+```
+
+svi states to covid ~ active rates 
+```{r}
+
+#mobility.active.svi.top <- mobility.active %>%
+#  filter(state %in% c("Mississippi", "West Virginia", "Alabama", "Kentucky", "Louisiana"))
+
+mobility.active.Mississippi <- mobility.active %>%
+  filter(state == "Mississippi")
+
+retail.active.Mississippi.lm <- lm(active.avg ~ retail.recreation.avg, mobility.active.Mississippi)
+retail.active.Mississippi.sum <- summary(retail.active.Mississippi.lm)
+
+grocery.active.Mississippi.lm <- lm(active.avg ~ grocery.pharmacy.avg, mobility.active.Mississippi)
+grocery.active.Mississippi.sum <- summary(grocery.active.Mississippi.lm)
+
+parks.active.Mississippi.lm <- lm(active.avg ~ parks.avg, mobility.active.Mississippi)
+parks.active.Mississippi.sum <- summary(parks.active.Mississippi.lm)
+
+transit.active.Mississippi.lm <- lm(active.avg ~ transit.avg, mobility.active.Mississippi)
+transit.active.Mississippi.sum <- summary(transit.active.Mississippi.lm)
+
+workplace.active.Mississippi.lm <- lm(active.avg ~ workplace.avg, mobility.active.Mississippi)
+workplace.active.Mississippi.sum <- summary(workplace.active.Mississippi.lm)
+
+residential.active.Mississippi.lm <- lm(active.avg ~ residential.avg, mobility.active.Mississippi)
+residential.active.Mississippi.sum <- summary(residential.active.Mississippi.lm)
+
+
+
 
 ```
 
