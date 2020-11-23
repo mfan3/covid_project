@@ -1907,32 +1907,6 @@ residential.active.Alabama.sum <- summary(residential.active.Alabama.lm)
 # significant results: grocery.active.Alabama.sum(*), workplace.active.Alabama.sum(*), residential.active.Alabama.sum (***)
 
 ```
-West Virginia
-```{r}
-mobility.active.West.Virginia <- mobility.active %>%
-  filter(state == "West Virginia")
-
-retail.active.West.Virginia.lm <- lm(active.avg ~ retail.recreation.avg, mobility.active.West.Virginia)
-retail.active.West.Virginia.sum <- summary(retail.active.West.Virginia.lm)
-
-grocery.active.West.Virginia.lm <- lm(active.avg ~ grocery.pharmacy.avg, mobility.active.West.Virginia)
-grocery.active.West.Virginia.sum <- summary(grocery.active.West.Virginia.lm)
-
-parks.active.West.Virginia.lm <- lm(active.avg ~ parks.avg, mobility.active.West.Virginia)
-parks.active.West.Virginia.sum <- summary(parks.active.West.Virginia.lm)
-
-transit.active.West.Virginia.lm <- lm(active.avg ~ transit.avg, mobility.active.West.Virginia)
-transit.active.West.Virginia.sum <- summary(transit.active.West.Virginia.lm)
-
-workplace.active.West.Virginia.lm <- lm(active.avg ~ workplace.avg, mobility.active.West.Virginia)
-workplace.active.West.Virginia.sum <- summary(workplace.active.West.Virginia.lm)
-
-residential.active.West.Virginia.lm <- lm(active.avg ~ residential.avg, mobility.active.West.Virginia)
-residential.active.West.Virginia.sum <- summary(residential.active.West.Virginia.lm)
-
-# significant results: workplace.active.West.Virginia.sum(**), residential.active.West.Virginia.sum(*)
-
-```
 
 New Hampshire
 ```{r}
