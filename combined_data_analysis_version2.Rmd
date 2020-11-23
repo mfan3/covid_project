@@ -1978,6 +1978,75 @@ residential.active.Utah.sum <- summary(residential.active.Utah.lm)
 
 ```
 
+Minnesota 
+```{r}
+mobility.active.Minnesota <- mobility.active %>%
+  filter(state == "Minnesota")
+
+#retail and recreation 
+retail.active.Minnesota.lm <- lm(active.avg ~ retail.recreation.avg, mobility.active.Minnesota)
+retail.active.Minnesota.sum <- summary(retail.active.Minnesota.lm)
+
+
+#grocery 
+grocery.active.Minnesota.lm <- lm(active.avg ~ grocery.pharmacy.avg, mobility.active.Minnesota)
+grocery.active.Minnesota.sum <- summary(grocery.active.Minnesota.lm)
+
+#parks
+parks.active.Minnesota.lm <- lm(active.avg ~ parks.avg, mobility.active.Minnesota)
+parks.active.Minnesota.sum <- summary(parks.active.Minnesota.lm)
+
+
+#transit
+transit.active.Minnesota.lm <- lm(active.avg ~ transit.avg, mobility.active.Minnesota)
+transit.active.Minnesota.sum <- summary(transit.active.Minnesota.lm)
+
+#workplace
+workplace.active.Minnesota.lm <- lm(active.avg ~ workplace.avg, mobility.active.Minnesota)
+workplace.active.Minnesota.sum <- summary(workplace.active.Minnesota.lm)
+
+#residential 
+residential.active.Minnesota.lm <- lm(active.avg ~ residential.avg, mobility.active.Minnesota)
+residential.active.Minnesota.sum <- summary(residential.active.Minnesota.lm)
+
+
+#none significant for minnesota 
+```
+
+
+North Dakota 
+```{r}
+mobility.active.ND <- mobility.active %>%
+  filter(state == "North Dakota")
+
+#retail and recreation 
+retail.active.ND.lm <- lm(active.avg ~ retail.recreation.avg, mobility.active.ND)
+retail.active.ND.sum <- summary(retail.active.ND.lm)
+
+
+#grocery 
+grocery.active.ND.lm <- lm(active.avg ~ grocery.pharmacy.avg, mobility.active.ND)
+grocery.active.ND.sum <- summary(grocery.active.ND.lm)
+
+#parks
+parks.active.ND.lm <- lm(active.avg ~ parks.avg, mobility.active.ND)
+parks.active.ND.sum <- summary(parks.active.ND.lm)
+
+
+#transit
+transit.active.ND.lm <- lm(active.avg ~ transit.avg, mobility.active.ND)
+transit.active.ND.sum <- summary(transit.active.ND.lm)
+
+#workplace
+workplace.active.ND.lm <- lm(active.avg ~ workplace.avg, mobility.active.ND)
+workplace.active.ND.sum <- summary(workplace.active.ND.lm)
+
+#residential 
+residential.active.ND.lm <- lm(active.avg ~ residential.avg, mobility.active.ND)
+residential.active.ND.sum <- summary(residential.active.ND.lm)
+
+#grocery.pharmacy.avg significant (at a = 0.05) with p = 0.013257
+```
 
 
 
