@@ -1977,7 +1977,56 @@ residential.active.Utah.sum <- summary(residential.active.Utah.lm)
 
 
 ```
+Connecticut
+```{r}
+mobility.active.Connecticut <- mobility.active %>%
+  filter(state == "Connecticut")
 
+retail.active.Connecticut.lm <- lm(active.avg ~ retail.recreation.avg, mobility.active.Connecticut)
+retail.active.Connecticut.sum <- summary(retail.active.Connecticut.lm)
+
+grocery.active.Connecticut.lm <- lm(active.avg ~ grocery.pharmacy.avg, mobility.active.Connecticut)
+grocery.active.Connecticut.sum <- summary(grocery.active.Connecticut.lm)
+
+parks.active.Connecticut.lm <- lm(active.avg ~ parks.avg, mobility.active.Connecticut)
+parks.active.Connecticut.sum <- summary(parks.active.Connecticut.lm)
+
+transit.active.Connecticut.lm <- lm(active.avg ~ transit.avg, mobility.active.Connecticut)
+transit.active.Connecticut.sum <- summary(transit.active.Connecticut.lm)
+
+workplace.active.Connecticut.lm <- lm(active.avg ~ workplace.avg, mobility.active.Connecticut)
+workplace.active.Connecticut.sum <- summary(workplace.active.Connecticut.lm)
+
+residential.active.Connecticut.lm <- lm(active.avg ~ residential.avg, mobility.active.Connecticut)
+residential.active.Connecticut.sum <- summary(residential.active.Connecticut.lm)
+
+#significant results: retail.active.Connecticut.sum (***), grocery.active.Connecticut.sum (*),transit.active.Connecticut.sum (***), workplace.active.Connecticut.sum (***), residential.active.Connecticut.sum (***)
+```
+
+Maryland
+```{r}
+mobility.active.Maryland <- mobility.active %>%
+  filter(state == "Maryland")
+
+retail.active.Maryland.lm <- lm(active.avg ~ retail.recreation.avg, mobility.active.Maryland)
+retail.active.Maryland.sum <- summary(retail.active.Maryland.lm)
+
+grocery.active.Maryland.lm <- lm(active.avg ~ grocery.pharmacy.avg, mobility.active.Maryland)
+grocery.active.Maryland.sum <- summary(grocery.active.Maryland.lm)
+
+parks.active.Maryland.lm <- lm(active.avg ~ parks.avg, mobility.active.Maryland)
+parks.active.Maryland.sum <- summary(parks.active.Maryland.lm)
+
+transit.active.Maryland.lm <- lm(active.avg ~ transit.avg, mobility.active.Maryland)
+transit.active.Maryland.sum <- summary(transit.active.Maryland.lm)
+
+workplace.active.Maryland.lm <- lm(active.avg ~ workplace.avg, mobility.active.Maryland)
+workplace.active.Maryland.sum <- summary(workplace.active.Maryland.lm)
+
+residential.active.Maryland.lm <- lm(active.avg ~ residential.avg, mobility.active.Maryland)
+residential.active.Maryland.sum <- summary(residential.active.Maryland.lm)
+
+#significant results: retail.active.Maryland.sum (***), transit.active.Maryland.sum (*), workplace.active.Maryland.sum (***), workplace.active.Maryland.sum (***). 
 Minnesota 
 ```{r}
 mobility.active.Minnesota <- mobility.active %>%
