@@ -24,8 +24,8 @@ For convenice, jump to **Graphs** to view visual representation.
 # Data cleaning 
 ## Importing packages
 ```{r, message=FALSE}
-library(tidyverse)
-library(dplyr) 
+library(tidyverse) 
+library(dplyr)     
 ```
 
 ## Data cleaning for CDC data
@@ -1907,6 +1907,111 @@ residential.active.Alabama.sum <- summary(residential.active.Alabama.lm)
 # significant results: grocery.active.Alabama.sum(*), workplace.active.Alabama.sum(*), residential.active.Alabama.sum (***)
 
 ```
+West Virginia
+```{r}
+mobility.active.West.Virginia <- mobility.active %>%
+  filter(state == "West Virginia")
+
+retail.active.West.Virginia.lm <- lm(active.avg ~ retail.recreation.avg, mobility.active.West.Virginia)
+retail.active.West.Virginia.sum <- summary(retail.active.West.Virginia.lm)
+
+grocery.active.West.Virginia.lm <- lm(active.avg ~ grocery.pharmacy.avg, mobility.active.West.Virginia)
+grocery.active.West.Virginia.sum <- summary(grocery.active.West.Virginia.lm)
+
+parks.active.West.Virginia.lm <- lm(active.avg ~ parks.avg, mobility.active.West.Virginia)
+parks.active.West.Virginia.sum <- summary(parks.active.West.Virginia.lm)
+
+transit.active.West.Virginia.lm <- lm(active.avg ~ transit.avg, mobility.active.West.Virginia)
+transit.active.West.Virginia.sum <- summary(transit.active.West.Virginia.lm)
+
+workplace.active.West.Virginia.lm <- lm(active.avg ~ workplace.avg, mobility.active.West.Virginia)
+workplace.active.West.Virginia.sum <- summary(workplace.active.West.Virginia.lm)
+
+residential.active.West.Virginia.lm <- lm(active.avg ~ residential.avg, mobility.active.West.Virginia)
+residential.active.West.Virginia.sum <- summary(residential.active.West.Virginia.lm)
+
+# significant results: workplace.active.West.Virginia.sum(**), residential.active.West.Virginia.sum(*)
+
+```
+
+New Hampshire
+```{r}
+mobility.active.New.Hampshire <- mobility.active %>%
+  filter(state == "New Hampshire")
+
+retail.active.New.Hampshire.lm <- lm(active.avg ~ retail.recreation.avg, mobility.active.New.Hampshire)
+retail.active.New.Hampshire.sum <- summary(retail.active.New.Hampshire.lm)
+
+
+grocery.active.New.Hampshire.lm <- lm(active.avg ~ grocery.pharmacy.avg, mobility.active.New.Hampshire)
+grocery.active.New.Hampshire.sum <- summary(grocery.active.New.Hampshire.lm)
+
+parks.active.New.Hampshire.lm <- lm(active.avg ~ parks.avg, mobility.active.New.Hampshire)
+parks.active.New.Hampshire.sum <- summary(parks.active.New.Hampshire.lm)
+
+transit.active.New.Hampshire.lm <- lm(active.avg ~ transit.avg, mobility.active.New.Hampshire)
+transit.active.New.Hampshire.sum <- summary(transit.active.New.Hampshire.lm)
+
+
+
+workplace.active.New.Hampshire.lm <- lm(active.avg ~ workplace.avg, mobility.active.New.Hampshire)
+workplace.active.New.Hampshire.sum <- summary(workplace.active.New.Hampshire.lm)
+
+
+
+residential.active.New.Hampshire.lm <- lm(active.avg ~ residential.avg, mobility.active.New.Hampshire)
+residential.active.New.Hampshire.sum <- summary(residential.active.New.Hampshire.lm)
+
+
+
+# significant results:retail.active.New.Hampshire.sum(**),grocery.active.New.Hampshire.sum(**),parks.active.New.Hampshire.sum(*),
+#transit.active.New.Hampshire.sum(**),workplace.active.New.Hampshire.sum(**),residential.active.New.Hampshire.sum(***)
+
+```
+Utah
+```{r}
+mobility.active.Utah <- mobility.active %>%
+  filter(state == "Utah")
+
+retail.active.Utah.lm <- lm(active.avg ~ retail.recreation.avg, mobility.active.Utah)
+retail.active.Utah.sum <- summary(retail.active.Utah.lm)
+
+
+
+grocery.active.Utah.lm <- lm(active.avg ~ grocery.pharmacy.avg, mobility.active.Utah)
+grocery.active.Utah.sum <- summary(grocery.active.Utah.lm)
+
+
+parks.active.Utah.lm <- lm(active.avg ~ parks.avg, mobility.active.Utah)
+parks.active.Utah.sum <- summary(parks.active.Utah.lm)
+
+
+
+transit.active.Utah.lm <- lm(active.avg ~ transit.avg, mobility.active.Utah)
+transit.active.Utah.sum <- summary(transit.active.Utah.lm)
+
+
+workplace.active.Utah.lm <- lm(active.avg ~ workplace.avg, mobility.active.Utah)
+workplace.active.Utah.sum <- summary(workplace.active.Utah.lm)
+
+
+residential.active.Utah.lm <- lm(active.avg ~ residential.avg, mobility.active.Utah)
+residential.active.Utah.sum <- summary(residential.active.Utah.lm)
+
+
+# significant results:  transit.active.Utah.sum (*),workplace.active.Utah.sum(*),residental.active.Utah.sum(*)
+
+
+```
+
+
+
+
+
+
+
+
+
 
 
 
