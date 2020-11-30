@@ -1643,6 +1643,10 @@ covid.mortality <- covid.time.series %>%
 svi.mortality <- svi.analysis %>%
   inner_join(covid.mortality, by = "state") %>%
   select(-state)
+
+# log transformation of per capita income 
+svi.mortality <- svi.mortality %>%
+  mutate(pci.log = log10(per.capita))
 ```
 
 Create mobility & active rates data frame with active rates calculated by active cases over total population with a lag of 5 days 
@@ -1717,6 +1721,8 @@ svi.pov.bottom <- svi.mortality %>%
 svi.pov.top.states <- svi.pov.top$STATE
 svi.pov.bottom.states <- svi.pov.bottom$STATE 
 
+pov.mortality.lm <- lm(mortality.avg ~ poverty.rate, svi.mortality)
+pov.mortality.sum <- summary(pov.mortality.lm)
 pov.mortality.top.lm <- lm(mortality.avg ~ poverty.rate, svi.pov.top)
 pov.mortality.top.sum <- summary(pov.mortality.top.lm)
 pov.mortality.bottom.lm <- lm(mortality.avg ~ poverty.rate, svi.pov.bottom)
@@ -1732,10 +1738,13 @@ svi.pci.bottom <- svi.mortality %>%
 svi.pci.top.states <- svi.pci.top$STATE
 svi.pci.bottom.states <- svi.pci.bottom$STATE 
 
-pci.mortality.top.lm <- lm(mortality.avg ~ per.capita, svi.pci.top)
-pci.mortality.top.sum <- summary(pov.mortality.top.lm)
-pci.mortality.bottom.lm <- lm(mortality.avg ~ per.capita, svi.pci.bottom)
-pci.mortality.bottom.sum <- summary(pci.mortality.bottom.lm)
+pci.log.mortality.lm <- lm(mortality.avg ~ pci.log, svi.mortality)
+pci.log.mortality.sum <- summary(pci.log.mortality.lm)
+pci.log.mortality.top.lm <- lm(mortality.avg ~ pci.log, svi.pci.top)
+pci.log.mortality.top.sum <- summary(pci.log.mortality.top.lm)
+pci.log.mortality.bottom.lm <- lm(mortality.avg ~ pci.log, svi.pci.bottom)
+pci.log.mortality.bottom.sum <- summary(pci.log.mortality.bottom.lm)
+# pci is significant for all states but not top and bottom states 
 
 
 # no HS rates 
@@ -1746,6 +1755,8 @@ svi.noHS.bottom <- svi.mortality %>%
 
 svi.noHS.top.states <- svi.noHS.top$STATE
 svi.noHS.bottom.states <- svi.noHS.bottom$STATE 
+
+
 
 noHS.mortality.top.lm <- lm(mortality.avg ~ no.HS.rate, svi.noHS.top)
 noHS.mortality.top.sum <- summary(noHS.mortality.top.lm)
@@ -1810,18 +1821,57 @@ svi.uninsured.bottom <- svi.mortality %>%
 svi.uninsured.top.states <- svi.uninsured.top$STATE
 svi.uninsured.bottom.states <- svi.uninsured.bottom$STATE
 
+uninsured.mortality.lm <- lm(mortality.avg ~ uninsured.rate, svi.mortality)
+uninsured.mortality.sum <- summary(uninsured.mortality.lm)
 uninsured.mortality.top.lm <- lm(mortality.avg ~ uninsured.rate, svi.uninsured.top)
 uninsured.mortality.top.sum <- summary(uninsured.mortality.top.lm)
 uninsured.mortality.bottom.lm <- lm(mortality.avg ~ uninsured.rate, svi.uninsured.bottom)
 uninsured.mortality.bottom.sum <- summary(uninsured.mortality.bottom.lm)
+# uninsured also significant 
+
+# pci & uninsured
+pci.log.uninsured.mortality.lm <- lm(mortality.avg ~ pci.log + uninsured.rate, svi.mortality)
+pci.log.uninsured.mortality.sum <- summary(pci.log.uninsured.mortality.lm)
+pci.uninsured.interaction.mortality.lm <- lm(mortality.avg ~ pci.log * uninsured.rate, svi.mortality)
+pci.uninsured.interaction.mortality.sum <- summary(pci.uninsured.interaction.mortality.lm)
+pci.uninsured <- svi.mortality %>%
+  filter(!is.na(pci.log))
+cor(pci.uninsured$pci.log, pci.uninsured$uninsured.rate)
+# cor < 0.7 
 
 svi.top.states <- table(c(svi.pov.top.states, svi.pci.bottom.states, svi.noHS.top.states, svi.age.top.states, svi.disabled.top.states, svi.minority.top.states, svi.uninsured.top.states)) 
+
 svi.top.overlap.states <- sort(svi.top.states, decreasing=T)[1:5]
 
 svi.bottom.states <- table(c(svi.pov.bottom.states, svi.pci.top.states, svi.noHS.bottom.states, svi.age.bottom.states, svi.disabled.bottom.states, svi.minority.bottom.states, svi.uninsured.bottom.states)) 
 svi.bottom.overlap.states <- sort(svi.bottom.states, decreasing=T)[1:6]
 
 ```
+```{r}
+# top and bottom states for pci and uninsured 
+svi.sigl.crit = 5
+svi.pci.sig.top <- svi.mortality %>%
+  slice_max(per.capita, n = svi.sigl.crit)
+svi.pci.sig.top.states = svi.pci.sig.top$STATE
+#  *"Connecticut"*   "Massachusetts" "New Jersey"    *"Maryland"*      "New Hampshire"
+svi.pci.sig.bottom <- svi.mortality %>%
+  slice_min(per.capita, n = svi.sigl.crit)
+svi.pci.sig.bottom.states = svi.pci.sig.bottom$STATE
+# *"Mississippi"*   *"West Virginia"* "Arkansas"      "Idaho"         *"Alabama"* 
+
+svi.sig.uninsured.top <- svi.mortality %>%
+        slice_max(uninsured.rate, n = svi.sigl.crit)
+svi.sig.uninsured.top.states = svi.sig.uninsured.top$STATE
+# "Texas"    "Alaska"   "Oklahoma" "Georgia"  "Florida" 
+svi.sig.uninsured.bottom <- svi.mortality %>%
+        slice_min(uninsured.rate, n = svi.sigl.crit)
+svi.sig.uninsured.bottom.states = svi.sig.uninsured.bottom$STATE
+# "Massachusetts" "Hawaii"        "Vermont"       *"Minnesota"*     "Iowa"   
+
+
+
+```
+
 
 ### svi states to covid ~ active rates 
 #### Top Five States
@@ -2157,7 +2207,334 @@ residential.active.Utah.sum <- summary(residential.active.Utah.lm)
 ``` 
 
 
+Massachusetts
+```{r}
+mobility.active.Massachusetts <- mobility.active %>%
+  filter(state == "Massachusetts")
 
+retail.active.Massachusetts.lm <- lm(active.avg ~ retail.recreation.avg, mobility.active.Massachusetts)
+retail.active.Massachusetts.sum <- summary(retail.active.Massachusetts.lm)
+
+
+
+grocery.active.Massachusetts.lm <- lm(active.avg ~ grocery.pharmacy.avg, mobility.active.Massachusetts)
+grocery.active.Massachusetts.sum <- summary(grocery.active.Massachusetts.lm)
+
+
+parks.active.Massachusetts.lm <- lm(active.avg ~ parks.avg, mobility.active.Massachusetts)
+parks.active.Massachusetts.sum <- summary(parks.active.Massachusetts.lm)
+
+
+
+transit.active.Massachusetts.lm <- lm(active.avg ~ transit.avg, mobility.active.Massachusetts)
+transit.active.Massachusetts.sum <- summary(transit.active.Massachusetts.lm)
+
+
+workplace.active.Massachusetts.lm <- lm(active.avg ~ workplace.avg, mobility.active.Massachusetts)
+workplace.active.Massachusetts.sum <- summary(workplace.active.Massachusetts.lm)
+
+
+residential.active.Massachusetts.lm <- lm(active.avg ~ residential.avg, mobility.active.Massachusetts)
+residential.active.Massachusetts.sum <- summary(residential.active.Massachusetts.lm)
+
+
+# significant results:  none
+``` 
+
+
+New Jersey
+```{r}
+mobility.active.New.Jersey <- mobility.active %>%
+  filter(state == "New Jersey")
+
+retail.active.New.Jersey.lm <- lm(active.avg ~ retail.recreation.avg, mobility.active.New.Jersey)
+retail.active.New.Jersey.sum <- summary(retail.active.New.Jersey.lm)
+
+
+
+grocery.active.New.Jersey.lm <- lm(active.avg ~ grocery.pharmacy.avg, mobility.active.New.Jersey)
+grocery.active.New.Jersey.sum <- summary(grocery.active.New.Jersey.lm)
+
+
+parks.active.New.Jersey.lm <- lm(active.avg ~ parks.avg, mobility.active.New.Jersey)
+parks.active.New.Jersey.sum <- summary(parks.active.New.Jersey.lm)
+
+
+
+transit.active.New.Jersey.lm <- lm(active.avg ~ transit.avg, mobility.active.New.Jersey)
+transit.active.New.Jersey.sum <- summary(transit.active.New.Jersey.lm)
+
+
+workplace.active.New.Jersey.lm <- lm(active.avg ~ workplace.avg, mobility.active.New.Jersey)
+workplace.active.New.Jersey.sum <- summary(workplace.active.New.Jersey.lm)
+
+
+residential.active.New.Jersey.lm <- lm(active.avg ~ residential.avg, mobility.active.New.Jersey)
+residential.active.New.Jersey.sum <- summary(residential.active.New.Jersey.lm)
+
+
+# significant results:  retail.active.New.Jersey.sum(***), transit.active.New.Jersey.sum(***), workplace.active.New.Jersey.sum (***), residential.active.New.Jersey.sum(***)
+``` 
+
+
+Texas 
+```{r}
+mobility.active.Texas <- mobility.active %>%
+        filter(state == "Texas")
+#retail and recreation 
+retail.active.Texas.lm <- lm(active.avg ~ retail.recreation.avg, mobility.active.Texas)
+retail.active.Texas.sum <- summary(retail.active.Texas.lm)
+#grocery 
+grocery.active.Texas.lm <- lm(active.avg ~ grocery.pharmacy.avg, mobility.active.Texas)
+grocery.active.Texas.sum <- summary(grocery.active.Texas.lm)
+#parks
+parks.active.Texas.lm <- lm(active.avg ~ parks.avg, mobility.active.Texas)
+parks.active.Texas.sum <- summary(parks.active.Texas.lm)
+#transit
+transit.active.Texas.lm <- lm(active.avg ~ transit.avg, mobility.active.Texas)
+transit.active.Texas.sum <- summary(transit.active.Texas.lm)
+#workplace
+workplace.active.Texas.lm <- lm(active.avg ~ workplace.avg, mobility.active.Texas)
+workplace.active.Texasa.sum <- summary(workplace.active.Texas.lm)
+#residential 
+residential.active.Texas.lm <- lm(active.avg ~ residential.avg, mobility.active.Texas)
+residential.active.Texas.sum <- summary(residential.active.Texas.lm)
+
+# significant results:  transit.active.Texas.sum(*)
+```
+
+Arkansas
+```{r}
+mobility.active.Arkansas <- mobility.active %>%        
+  filter(state == "Arkansas")
+#retail and recreation 
+retail.active.Arkansas.lm <- lm(active.avg ~ retail.recreation.avg, mobility.active.Arkansas)
+retail.active.Arkansas.sum <- summary(retail.active.Arkansas.lm)
+#grocery 
+grocery.active.Arkansas.lm <- lm(active.avg ~ grocery.pharmacy.avg, mobility.active.Arkansas)
+grocery.active.Arkansas.sum <- summary(grocery.active.Arkansas.lm)
+#parks 
+parks.active.Arkansas.lm <- lm(active.avg ~ parks.avg, mobility.active.Arkansas) 
+parks.active.Arkansas.sum <- summary(parks.active.Arkansas.lm)
+
+#transit
+transit.active.Arkansas.lm <- lm(active.avg ~ transit.avg, mobility.active.Arkansas)
+transit.active.Arkansas.sum <- summary(transit.active.Arkansas.lm)
+#workplace
+workplace.active.Arkansas.lm <- lm(active.avg ~ workplace.avg, mobility.active.Arkansas)
+workplace.active.Arkansas.sum <- summary(workplace.active.Arkansas.lm)
+
+#residential 
+residential.active.Arkansas.lm <- lm(active.avg ~ residential.avg, mobility.active.Arkansas)
+residential.active.Arkansas.sum <- summary(residential.active.Arkansas.lm)
+
+# significant results: transit.active.Arkansas.sum(**), workplace.active.Arkansas.sum(*), residential.active.Arkansas.sum(**)
+```
+
+
+Georgia
+```{r}
+mobility.active.Georgia <- mobility.active %>%
+  filter(state == "Georgia")
+
+retail.active.Georgia.lm <- lm(active.avg ~ retail.recreation.avg, mobility.active.Georgia)
+retail.active.Georgia.sum <- summary(retail.active.Georgia.lm)
+
+
+
+grocery.active.Goergia.lm <- lm(active.avg ~ grocery.pharmacy.avg, mobility.active.Georgia)
+grocery.active.Goergia.sum <- summary(grocery.active.Goergia.lm)
+
+
+parks.active.Goergia.lm <- lm(active.avg ~ parks.avg, mobility.active.Georgia)
+parks.active.Goergia.sum <- summary(parks.active.Goergia.lm)
+
+
+
+transit.active.Goergia.lm <- lm(active.avg ~ transit.avg, mobility.active.Georgia)
+transit.active.Goergia.sum <- summary(transit.active.Goergia.lm)
+
+
+workplace.active.Goergia.lm <- lm(active.avg ~ workplace.avg, mobility.active.Georgia)
+workplace.active.Goergia.sum <- summary(workplace.active.Goergia.lm)
+
+
+residential.active.Goergia.lm <- lm(active.avg ~ residential.avg, mobility.active.Georgia)
+residential.active.Goergia.sum <- summary(residential.active.Goergia.lm)
+
+# significant results:  transit.active.Goergia.sum(**), workplace.active.Goergia.sum(**), residential.active.Goergia.sum(***)
+```
+
+Idaho
+```{r}
+mobility.active.Idaho <- mobility.active %>%        
+  filter(state == "Idaho")
+#retail and recreation 
+retail.active.Idaho.lm <- lm(active.avg ~ retail.recreation.avg, mobility.active.Idaho)
+retail.active.Idaho.sum <- summary(retail.active.Idaho.lm)
+#grocery 
+grocery.active.Idaho.lm <- lm(active.avg ~ grocery.pharmacy.avg, mobility.active.Idaho)
+grocery.active.Idaho.sum <- summary(grocery.active.Idaho.lm)
+#parks
+parks.active.Idaho.lm <- lm(active.avg ~ parks.avg, mobility.active.Idaho)
+parks.active.Idaho.sum <- summary(parks.active.Idaho.lm)
+
+#transit
+transit.active.Idaho.lm <- lm(active.avg ~ transit.avg, mobility.active.Idaho)
+transit.active.Idaho.sum <- summary(transit.active.Idaho.lm)
+#workplace
+workplace.active.Idaho.lm <- lm(active.avg ~ workplace.avg, mobility.active.Idaho)
+workplace.active.Idaho.sum <- summary(workplace.active.Idaho.lm)
+
+#residential 
+residential.active.Idaho.lm <- lm(active.avg ~ residential.avg, mobility.active.Idaho)
+residential.active.Idaho.sum <- summary(residential.active.Idaho.lm)
+
+
+# significant results:  workplace.active.Idaho.sum(*), residential.active.Idaho.sum(*)
+
+```
+
+Florida
+```{r}
+mobility.active.Florida <- mobility.active %>%
+  filter(state == "Florida")
+
+retail.active.Florida.lm <- lm(active.avg ~ retail.recreation.avg, mobility.active.Florida)
+retail.active.Florida.sum <- summary(retail.active.Florida.lm)
+
+
+
+grocery.active.Florida.lm <- lm(active.avg ~ grocery.pharmacy.avg, mobility.active.Florida)
+grocery.active.Florida.sum <- summary(grocery.active.Florida.lm)
+
+
+parks.active.Florida.lm <- lm(active.avg ~ parks.avg, mobility.active.Florida)
+parks.active.Florida.sum <- summary(parks.active.Florida.lm)
+
+
+
+transit.active.Florida.lm <- lm(active.avg ~ transit.avg, mobility.active.Florida)
+transit.active.Florida.sum <- summary(transit.active.Florida.lm)
+
+
+workplace.active.Florida.lm <- lm(active.avg ~ workplace.avg, mobility.active.Florida)
+workplace.active.Florida.sum <- summary(workplace.active.Florida.lm)
+
+
+residential.active.Florida.lm <- lm(active.avg ~ residential.avg, mobility.active.Florida)
+residential.active.Florida.sum <- summary(residential.active.Florida.lm)
+
+# significant results:  transit.active.Florida.sum(*), workplace.active.Florida.sum(*), residential.active.Florida.sum(***)
+```
+
+Oklahoma
+```{r}
+mobility.active.Oklahoma <- mobility.active %>%
+        filter(state == "Oklahoma")
+#retail and recreation 
+retail.active.Oklahoma.lm <- lm(active.avg ~ retail.recreation.avg, mobility.active.Oklahoma)
+retail.active.Oklahoma.sum <- summary(retail.active.Oklahoma.lm)
+
+
+#grocery 
+grocery.active.Oklahoma.lm <- lm(active.avg ~ grocery.pharmacy.avg, mobility.active.Oklahoma)
+grocery.active.Oklahoma.sum <- summary(grocery.active.Oklahoma.lm)
+#parks
+parks.active.Oklahoma.lm <- lm(active.avg ~ parks.avg, mobility.active.Oklahoma)
+parks.active.Oklahoma.sum <- summary(parks.active.Oklahoma.lm)
+
+
+#transit
+transit.active.Oklahoma.lm <- lm(active.avg ~ transit.avg, mobility.active.Oklahoma)
+transit.active.Oklahoma.sum <- summary(transit.active.Oklahoma.lm)
+#workplace
+workplace.active.Oklahoma.lm <- lm(active.avg ~ workplace.avg, mobility.active.Oklahoma)
+workplace.active.Oklahoma.sum <- summary(workplace.active.Oklahoma.lm)
+
+#residential 
+residential.active.Oklahoma.lm <- lm(active.avg ~ residential.avg, mobility.active.Oklahoma)
+residential.active.Oklahoma.sum <- summary(residential.active.Oklahoma.lm)
+
+# significant results:  grocery.active.Oklahoma.sum(*), workplace.active.Oklahoma.sum(*), residential.active.Oklahoma.sum(*)
+```
+
+Hawaii
+```{r}
+mobility.active.Hawaii <- mobility.active %>%
+  filter(state == "Hawaii")
+
+retail.active.Hawaii.lm <- lm(active.avg ~ retail.recreation.avg, mobility.active.Hawaii)
+retail.active.Hawaii.sum <- summary(retail.active.Hawaii.lm)
+
+grocery.active.Hawaii.lm <- lm(active.avg ~ grocery.pharmacy.avg, mobility.active.Hawaii)
+grocery.active.Hawaii.sum <- summary(grocery.active.Hawaii.lm)
+
+parks.active.Hawaii.lm <- lm(active.avg ~ parks.avg, mobility.active.Hawaii)
+parks.active.Hawaii.sum <- summary(parks.active.Hawaii.lm)
+
+transit.active.Hawaii.lm <- lm(active.avg ~ transit.avg, mobility.active.Hawaii)
+transit.active.Hawaii.sum <- summary(transit.active.Hawaii.lm)
+
+workplace.active.Hawaii.lm <- lm(active.avg ~ workplace.avg, mobility.active.Hawaii)
+workplace.active.Hawaii.sum <- summary(workplace.active.Hawaii.lm)
+
+residential.active.Hawaii.lm <- lm(active.avg ~ residential.avg, mobility.active.Hawaii)
+residential.active.Hawaii.sum <- summary(residential.active.Hawaii.lm)
+#significant results: grocery.active.Hawaii.sum (*),parks.active.Hawaii.sum (*)
+
+```
+
+Vermont
+```{r}
+mobility.active.Vermont <- mobility.active %>%
+  filter(state == "Vermont")
+
+retail.active.Vermont.lm <- lm(active.avg ~ retail.recreation.avg, mobility.active.Vermont)
+retail.active.Vermont.sum <- summary(retail.active.Vermont.lm)
+
+grocery.active.Vermont.lm <- lm(active.avg ~ grocery.pharmacy.avg, mobility.active.Vermont)
+grocery.active.Vermont.sum <- summary(grocery.active.Vermont.lm)
+
+parks.active.Vermont.lm <- lm(active.avg ~ parks.avg, mobility.active.Vermont)
+parks.active.Vermont.sum <- summary(parks.active.Vermont.lm)
+
+transit.active.Vermont.lm <- lm(active.avg ~ transit.avg, mobility.active.Vermont)
+transit.active.Vermont.sum <- summary(transit.active.Vermont.lm)
+
+workplace.active.Vermont.lm <- lm(active.avg ~ workplace.avg, mobility.active.Vermont)
+workplace.active.Vermont.sum <- summary(workplace.active.Vermont.lm)
+
+residential.active.Vermont.lm <- lm(active.avg ~ residential.avg, mobility.active.Vermont)
+residential.active.Vermont.sum <- summary(residential.active.Vermont.lm)
+#significant results: retail.active.Vermont.sum (***), grocery.active.Vermont.sum (***),parks.active.Vermont.sum (**), transit.active.Vermont.sum (***), workplace.active.Vermont.sum (**), residential.active.Vermont.sum(***)
+```
+
+Iowa
+```{r}
+mobility.active.Iowa <- mobility.active %>%
+  filter(state == "Iowa")
+
+retail.active.Iowa.lm <- lm(active.avg ~ retail.recreation.avg, mobility.active.Iowa)
+retail.active.Iowa.sum <- summary(retail.active.Iowa.lm)
+
+grocery.active.Iowa.lm <- lm(active.avg ~ grocery.pharmacy.avg, mobility.active.Iowa)
+grocery.active.Iowa.sum <- summary(grocery.active.Iowa.lm)
+
+parks.active.Iowa.lm <- lm(active.avg ~ parks.avg, mobility.active.Iowa)
+parks.active.Iowa.sum <- summary(parks.active.Iowa.lm)
+
+transit.active.Iowa.lm <- lm(active.avg ~ transit.avg, mobility.active.Iowa)
+transit.active.Iowa.sum <- summary(transit.active.Iowa.lm)
+
+workplace.active.Iowa.lm <- lm(active.avg ~ workplace.avg, mobility.active.Iowa)
+workplace.active.Iowa.sum <- summary(workplace.active.Iowa.lm)
+
+residential.active.Iowa.lm <- lm(active.avg ~ residential.avg, mobility.active.Iowa)
+residential.active.Iowa.sum <- summary(residential.active.Iowa.lm)
+#significant results: retail.active.Iowa.sum (*), workplace.active.Iowa.sum (***),residential.active.Iowa.sum (*)
+
+```
 
 
 
