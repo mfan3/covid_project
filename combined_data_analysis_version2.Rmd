@@ -2537,6 +2537,14 @@ residential.active.Iowa.sum <- summary(residential.active.Iowa.lm)
 ```
 
 
+diagnostic/outlier check 
+```{r}
+uninsured.hist <- hist(svi.mortality$uninsured.rate, 
+     breaks = 25)
+pci.hist <- hist(svi.mortality$per.capita, 
+     breaks = 25)
+
+```
 
 # Graphs 
 ## Cumulative death cases
