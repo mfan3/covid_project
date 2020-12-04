@@ -2696,6 +2696,8 @@ pvals <- data.frame(state = US.states, retail.pval = retail.active.pval, grocery
 mses <- data.frame(state = US.states, retail.mse = retail.active.mse, grocery.mse = grocery.active.mse,
                    parks.mse = parks.active.mse, transit.mse = transit.active.mse,
                    workplace.mse = workplace.active.mse, residential.mse = residential.active.mse)
+
+mobility.active
 ```
 
 
