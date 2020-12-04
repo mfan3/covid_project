@@ -2534,6 +2534,58 @@ residential.active.Iowa.sum <- summary(residential.active.Iowa.lm)
 
 ```
 
+checking outliers for SVI data 
+```{r}
+svi.pci.graph <- ggplot(data = svi.mortality,
+                        aes(x = per.capita)) +
+  geom_histogram(aes(y = ..density..),
+                 fill = "lightblue",
+                 color = "black",
+                 bins = 25) +
+    theme_minimal() + 
+  theme(plot.title = element_text(hjust = 0.5,
+                                  face = "bold", 
+                                  size = 16),
+        axis.title = element_text(size = 12),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.line = element_line()) +
+  labs(title = "Distribution per capita incomes") + 
+  xlab("Per capita income ($)") + 
+  ylab("Frequency")
+svi.pci.graph 
+
+
+pci.log.graph <- ggplot(data=svi.mortality,aes(x=pci.log,y=mortality.avg)) +
+  geom_jitter(colour="dark green", alpha=0.7) +
+  geom_smooth(method = "lm",
+              formula = y ~ x,
+              col = "dark green") +
+  labs(x = "log per capita income", 
+       y = "COVID-19 mortality rates") + 
+  annotate('text', x = 4.4, y = 6, label = 'p = ') +
+  annotate('text', x = 4.437, y = 6, label = pci.log.mortality.sum$coefficients[2,4]) +
+  theme_bw() +
+  ggtitle("linear regression of log pci on mortality rates")
+
+uninsured.graph <- ggplot(data=svi.mortality,aes(x=uninsured.rate,y=mortality.avg)) +
+  geom_jitter(colour="dark green", alpha=0.7) +
+  geom_smooth(method = "lm",
+              formula = y ~ x,
+              col = "dark green") +
+  labs(x = "uninsured rate", 
+       y = "COVID-19 mortality rates") + 
+  annotate('text', x = 0.14, y = 6, label = 'p = ') +
+  annotate('text', x = 0.16, y = 6, label = uninsured.mortality.sum$coefficients[2,4]) +
+  theme_bw() +
+  ggtitle("linear regression of uninsured rate on mortality rates")
+  
+pci.log.graph 
+uninsured.graph
+
+
+```
+
 # Other stuff
 ```{r}
 # summary(lm(active.avg ~ state + retail.recreation.avg, mobility.active))
