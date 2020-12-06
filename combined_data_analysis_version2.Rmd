@@ -1901,7 +1901,7 @@ cor(pci.uninsured$pci.log, pci.uninsured$uninsured.rate)
 # cor < 0.7 
 
 # population density 
-pop.mortality.lm <- lm(mortality.avg ~ population.density, svi.mortality.pop)
+pop.mortality.lm <- lm(mortality.avg ~ pop.log, svi.mortality.pop)
 pop.mortality.sum <- summary(pop.mortality.lm)
 
 
@@ -1925,6 +1925,8 @@ col.rsq1 <- function(cname) summary(lm(as.formula(paste('mortality.avg ~', cname
 rsqs1 <- map_dbl(cnames1, col.rsq1)
 svi.mortality.rsq <- tibble(cname = cnames1, rsq = rsqs1) %>% arrange(desc(rsq))
 svi.mortality.rsq
+cor.test(svi.mortality.pop$pop.log, svi.mortality.pop$pci.log)
+# could revisit if there is extra time 
 
 m1 <- lm(mortality.avg ~ pop.log, svi.mortality.pop)
 summary(m1)
@@ -2695,6 +2697,68 @@ pci.log.graph
 uninsured.graph
 pop.graph
 
+
+```
+
+top states
+```{r}
+svi.sig.crit = 10
+svi.pop.top <- svi.mortality.pop %>%
+  slice_max(pop.log, n = svi.sig.crit)
+svi.pop.top.states = svi.pop.top$STATE
+
+
+svi.pop.top.states
+#  [1] "New Jersey"    "Rhode Island"  "Massachusetts" "Connecticut"   "Maryland"      "Delaware"      "New York"      "Florida"       "Pennsylvania" 
+# [10] "Ohio"  
+
+
+mobility.active.top <- mobility.active %>%
+  filter(state %in% svi.pop.top.states) %>%
+  group_by(state, biweek) %>%
+  summarise(active.mean = active.avg,
+            mobility.mean = mean(c(retail.recreation.avg, grocery.pharmacy.avg, parks.avg, transit.avg, workplace.avg, residential.avg)),
+            retail.recreation.mean = mean(retail.recreation.avg),
+            grocery.pharmacy.mean = mean(grocery.pharmacy.avg), 
+            parks.mean = mean(parks.avg), 
+            transit.mean = mean(transit.avg), 
+            workplace.mean = mean(workplace.avg), 
+            residential.mean = mean(residential.avg))
+
+
+mobility.active.bottom <- mobility.active %>%
+  filter(state %in% svi.pop.bottom.states) %>%
+  group_by(state, biweek) %>%
+  summarise(active.mean = active.avg,
+            mobility.avg = mean(c(retail.recreation.avg, grocery.pharmacy.avg, parks.avg, transit.avg, workplace.avg, residential.avg)))
+
+
+mobility.active.top.lm <- lm(active.mean ~ mobility.mean, data = mobility.active.top)
+mobility.active.top.res <- residuals(mobility.active.top.lm)
+
+retail.mobility.top.lm <- lm(retail.recreation.mean ~ mobility.mean, data = mobility.active.top)
+retail.top.res <- residuals(retail.mobility.top.lm)
+# below is lm(residual ~ residual)
+retail.top.lm <- lm(mobility.active.top.res ~ retail.active.top.res)
+retail.top.sum <- summary(retail.lm)
+
+
+workplace.active.top <- lm(workplace.mean ~ mobility.mean, data = mobility.active.top)
+workplace.res <- residuals(workplace.active.top)
+
+workplace.sum <- summary(lm(workplace.res ~ residuals(retail.active.top)))
+
+
+
+```
+
+
+bottom states 
+```{r}
+svi.pop.bottom <- svi.mortality.pop %>%
+  slice_min(pop.log, n = svi.sig.crit)
+svi.pop.bottom.states = svi.pop.bottom$STATE
+svi.pop.bottom.states
 
 ```
 
