@@ -2697,13 +2697,23 @@ mobility.active.top.res <- residuals(mobility.active.top.lm)
 retail.mobility.top.lm <- lm(retail.recreation.mean ~ mobility.mean, data = mobility.active.top)
 retail.top.res <- residuals(retail.mobility.top.lm)
 # below is lm(residual ~ residual)
-retail.top.lm <- lm(mobility.active.top.res ~ retail.active.top.res)
+retail.top.lm <- lm(mobility.active.top.res ~ retail.top.res)
 retail.top.sum <- summary(retail.lm)
 
 # grocery and pharmacy
+grocery.pharmacy.mobility.top.lm <- lm(grocery.pharmacy.mean ~ mobility.mean, data = mobility.active.top)
+grocery.top.res <- residuals(grocery.pharmacy.mobility.top.lm)
+# below is lm(residual ~ residual)
+grocery.top.lm <- lm(mobility.active.top.res ~ grocery.top.res)
+grocery.top.sum <- summary(grocery.top.lm)
 
 
-# parks 
+# parks  
+parks.mobility.top.lm <- lm(parks.mean ~ mobility.mean, data = mobility.active.top)
+parks.top.res <- residuals(parks.mobility.top.lm)
+# below is lm(residual ~ residual)
+parks.top.lm <- lm(mobility.active.top.res ~ parks.top.res)
+parks.top.sum <- summary(parks.top.lm)
 
 # transit 
 
