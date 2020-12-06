@@ -1726,6 +1726,49 @@ mobility.active <- mobility.active %>%
 ```
 
 Linear regression
+
+
+Linear regression
+For all states
+```{r}
+# poverty rates
+pov.mortality.lm <- lm(mortality.avg ~ poverty.rate, svi.mortality)
+pov.mortality.sum <- summary(pov.mortality.lm)
+ 
+# per capita 
+pci.mortality.lm <- lm(mortality.avg ~ per.capita, svi.mortality)
+pci.mortality.sum <- summary(pci.mortality.lm)
+ 
+#no HS rates 
+noHS.mortality.lm <- lm(mortality.avg ~ no.HS.rate, svi.mortality)
+noHS.mortality.sum <- summary(noHS.mortality.lm)
+ 
+#age 65/elderly rates 
+age.mortality.lm <- lm(mortality.avg ~ age65.rate, svi.mortality)
+age.mortality.sum <- summary(age.mortality.lm)
+ 
+#unisured rates
+uninsured.mortality.lm <- lm(mortality.avg ~ uninsured.rate, svi.mortality)
+uninsured.mortality.sum <- summary(uninsured.mortality.lm)
+ 
+#minority rates
+minority.mortality.lm <- lm(mortality.avg ~ minority.rate, svi.mortality)
+minority.mortality.sum <- summary(minority.mortality.lm)
+ 
+disabled.mortality.lm <- lm(mortality.avg ~ disabled.rate, svi.mortality)
+disabled.mortality.sum <- summary(disabled.mortality.lm)
+ 
+```
+
+
+
+
+
+
+
+
+
+
 ```{r}
 svi.crit = 10
 
