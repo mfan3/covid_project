@@ -2693,13 +2693,23 @@ mobility.active.bottom <- mobility.active %>%
 mobility.active.top.lm <- lm(active.mean ~ mobility.mean, data = mobility.active.top)
 mobility.active.top.res <- residuals(mobility.active.top.lm)
 
+# retial and recreation
 retail.mobility.top.lm <- lm(retail.recreation.mean ~ mobility.mean, data = mobility.active.top)
 retail.top.res <- residuals(retail.mobility.top.lm)
 # below is lm(residual ~ residual)
 retail.top.lm <- lm(mobility.active.top.res ~ retail.active.top.res)
 retail.top.sum <- summary(retail.lm)
 
+# grocery and pharmacy
 
+
+# parks 
+
+# transit 
+
+# workplace 
+
+# residential 
 workplace.active.top <- lm(workplace.mean ~ mobility.mean, data = mobility.active.top)
 workplace.res <- residuals(workplace.active.top)
 
@@ -2716,6 +2726,9 @@ svi.pop.bottom <- svi.mortality.pop %>%
   slice_min(pop.log, n = svi.sig.crit)
 svi.pop.bottom.states = svi.pop.bottom$STATE
 svi.pop.bottom.states
+
+#  [1] "Alaska"       "Wyoming"      "Montana"      "North Dakota" "South Dakota" "New Mexico"   "Idaho"        "Nebraska"     "Nevada"      
+# [10] "Kansas" 
 
 ```
 
