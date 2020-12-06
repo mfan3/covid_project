@@ -1644,9 +1644,26 @@ svi.mortality <- svi.analysis %>%
   inner_join(covid.mortality, by = "state") %>%
   select(-state)
 
+
 # log transformation of per capita income 
 svi.mortality <- svi.mortality %>%
   mutate(pci.log = log10(per.capita))
+
+
+# added population density 
+svi.pop <- svi.state %>%
+  select(c(STATE, poverty.rate, per.capita, no.HS.rate, age65.rate, disabled.rate, minority.rate, uninsured.rate, population.density)) %>%
+  mutate(state = STATE)
+
+svi.mortality.pop <- svi.pop %>%
+  inner_join(covid.mortality, by = "state") %>%
+  select(-state)
+
+svi.mortality.pop <- svi.mortality.pop %>%
+  mutate(pci.log = log10(per.capita),
+         # log transform population density?
+         pop.log = log10(population.density)) %>%
+  select(-c(per.capita, population.density))
 ```
 
 Create mobility & active rates data frame with active rates calculated by active cases over total population with a lag of 5 days 
@@ -1880,7 +1897,13 @@ pci.uninsured.interaction.mortality.sum <- summary(pci.uninsured.interaction.mor
 pci.uninsured <- svi.mortality %>%
   filter(!is.na(pci.log))
 cor(pci.uninsured$pci.log, pci.uninsured$uninsured.rate)
+# cor = -0.4745319
 # cor < 0.7 
+
+# population density 
+pop.mortality.lm <- lm(mortality.avg ~ population.density, svi.mortality.pop)
+pop.mortality.sum <- summary(pop.mortality.lm)
+
 
 svi.top.states <- table(c(svi.pov.top.states, svi.pci.bottom.states, svi.noHS.top.states, svi.age.top.states, svi.disabled.top.states, svi.minority.top.states, svi.uninsured.top.states)) 
 
@@ -1890,6 +1913,25 @@ svi.bottom.states <- table(c(svi.pov.bottom.states, svi.pci.top.states, svi.noHS
 svi.bottom.overlap.states <- sort(svi.bottom.states, decreasing=T)[1:6]
 
 ```
+
+r-squared table 
+```{r}
+m0 <- lm(mortality.avg ~ 1, svi.mortality.pop)
+add1(m0, lm(mortality.avg ~ ., svi.mortality.pop))
+
+cnames <- colnames(svi.mortality.pop)
+cnames1 <- cnames[cnames != 'mortality.avg']
+col.rsq1 <- function(cname) summary(lm(as.formula(paste('mortality.avg ~', cname)), svi.mortality.pop))$r.squared
+rsqs1 <- map_dbl(cnames1, col.rsq1)
+svi.mortality.rsq <- tibble(cname = cnames1, rsq = rsqs1) %>% arrange(desc(rsq))
+svi.mortality.rsq
+
+m1 <- lm(mortality.avg ~ pop.log, svi.mortality.pop)
+summary(m1)
+```
+
+
+
 ```{r}
 # top and bottom states for pci and uninsured 
 svi.sigl.crit = 5
@@ -1911,6 +1953,15 @@ svi.sig.uninsured.bottom <- svi.mortality %>%
 svi.sig.uninsured.bottom.states = svi.sig.uninsured.bottom$STATE
 # "Massachusetts" "Hawaii"        "Vermont"       *"Minnesota"*     "Iowa"   
 
+svi.pop.sig.top <- svi.mortality %>%
+  slice_max(population.density, n = svi.sigl.crit)
+svi.pop.sig.top.states = svi.pop.sig.top$STATE
+# "New Jersey"    "Rhode Island"  "Massachusetts" "Connecticut"   "Maryland"    
+
+svi.pop.sig.bottom <- svi.mortality %>%
+  slice_min(population.density, n = svi.sigl.crit)
+svi.pop.sig.bottom.states = svi.pop.sig.bottom$STATE
+# "Alaska"       "Wyoming"      "Montana"      "North Dakota" "South Dakota"
 
 
 ```
@@ -2600,7 +2651,7 @@ svi.pci.graph
 
 
 pci.log.graph <- ggplot(data=svi.mortality,aes(x=pci.log,y=mortality.avg)) +
-  geom_jitter(colour="dark green", alpha=0.7) +
+#  geom_jitter(colour="dark green", alpha=0.7) +
   geom_smooth(method = "lm",
               formula = y ~ x,
               col = "dark green") +
@@ -2608,11 +2659,12 @@ pci.log.graph <- ggplot(data=svi.mortality,aes(x=pci.log,y=mortality.avg)) +
        y = "COVID-19 mortality rates") + 
   annotate('text', x = 4.4, y = 6, label = 'p = ') +
   annotate('text', x = 4.437, y = 6, label = pci.log.mortality.sum$coefficients[2,4]) +
+  geom_label(aes(label = STATE), check_overlap = TRUE) +
   theme_bw() +
-  ggtitle("linear regression of log pci on mortality rates")
+  ggtitle("linear regression of log pci on mortality rates") 
 
 uninsured.graph <- ggplot(data=svi.mortality,aes(x=uninsured.rate,y=mortality.avg)) +
-  geom_jitter(colour="dark green", alpha=0.7) +
+#  geom_jitter(colour="dark green", alpha=0.7) +
   geom_smooth(method = "lm",
               formula = y ~ x,
               col = "dark green") +
@@ -2620,11 +2672,28 @@ uninsured.graph <- ggplot(data=svi.mortality,aes(x=uninsured.rate,y=mortality.av
        y = "COVID-19 mortality rates") + 
   annotate('text', x = 0.14, y = 6, label = 'p = ') +
   annotate('text', x = 0.16, y = 6, label = uninsured.mortality.sum$coefficients[2,4]) +
+  geom_text(aes(label = STATE), check_overlap = TRUE) +
   theme_bw() +
   ggtitle("linear regression of uninsured rate on mortality rates")
   
+
+pop.graph <- ggplot(data=svi.mortality.pop,aes(x=population.density,y=mortality.avg)) +
+#  geom_jitter(colour="dark green", alpha=0.7) +
+  geom_smooth(method = "lm",
+              formula = y ~ x,
+              col = "dark green") +
+  labs(x = "population density", 
+       y = "COVID-19 mortality rates") + 
+  annotate('text', x = 0, y = 8, label = 'p = ') +
+  annotate('text', x = 180, y = 8, label = pop.mortality.sum$coefficients[2,4]) +
+  geom_text(aes(label = STATE), check_overlap = TRUE) +
+  theme_bw() +
+  ggtitle("linear regression of population density on mortality rates")
+
+
 pci.log.graph 
 uninsured.graph
+pop.graph
 
 
 ```
