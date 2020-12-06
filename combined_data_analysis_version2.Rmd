@@ -2698,7 +2698,7 @@ retail.mobility.top.lm <- lm(retail.recreation.mean ~ mobility.mean, data = mobi
 retail.top.res <- residuals(retail.mobility.top.lm)
 # below is lm(residual ~ residual)
 retail.top.lm <- lm(mobility.active.top.res ~ retail.top.res)
-retail.top.sum <- summary(retail.lm)
+retail.top.sum <- summary(retail.top.lm)
 
 # grocery and pharmacy
 grocery.pharmacy.mobility.top.lm <- lm(grocery.pharmacy.mean ~ mobility.mean, data = mobility.active.top)
@@ -2739,6 +2739,20 @@ svi.pop.bottom.states
 
 #  [1] "Alaska"       "Wyoming"      "Montana"      "North Dakota" "South Dakota" "New Mexico"   "Idaho"        "Nebraska"     "Nevada"      
 # [10] "Kansas" 
+
+
+residential.mobility.bottom.lm <- lm(residential.mean ~ mobility.mean, data = mobility.active.bottom)
+residential.bottom.res <- residuals(residential.mobility.bottom.lm)
+# below is lm(residual ~ residual)
+residential.bottom.lm <- lm(mobility.active.bottom.res ~ residential.bottom.res)
+residential.bottom.sum <- summary(residential.bottom.lm)
+
+
+workplace.mobility.bottom.lm <- lm(workplace.mean ~ mobility.mean, data = mobility.active.bottom)
+workplace.bottom.res <- residuals(workplace.mobility.bottom.lm)
+# below is lm(residual ~ residual)
+workplace.bottom.lm <- lm(mobility.active.bottom.res ~ workplace.bottom.res)
+workplace.bottom.sum <- summary(workplace.bottom.lm)
 
 ```
 
