@@ -2887,7 +2887,7 @@ residential.bottom.graph <- ggplot(data=residential.bottom.df,aes(x=residential.
 # when residual of residential increase, the residual of active cases to average mobility decreases 
 
 
-residential.bottom.graph <- ggplot(data=mobility.active.bottom,aes(x=mobility.mean,y=active.mean)) +
+residential.bottom.graph <- ggplot(data=mobility.active.bottom,aes(x=mean.mobility,y=mean.active)) +
   geom_jitter(colour="dark green", alpha=0.7) +
   geom_smooth(method = "lm",
               formula = y ~ x,
@@ -2897,7 +2897,7 @@ residential.bottom.graph <- ggplot(data=mobility.active.bottom,aes(x=mobility.me
   theme_bw() +
   ggtitle("linear regression of population density on mortality rates")
 
-mobility.active.graph.bottom <- ggplot(data=mobility.active.bottom,aes(x=mobility.mean, y=active.mean)) +
+mobility.active.graph.bottom <- ggplot(data=mobility.active.bottom,aes(x=mean.mobility, y=mean.active)) +
 #  geom_jitter(colour="dark green", alpha=0.7) +
   geom_smooth(method = "lm",
               formula = y ~ x,
