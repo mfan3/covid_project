@@ -1955,13 +1955,13 @@ svi.sig.uninsured.bottom <- svi.mortality %>%
 svi.sig.uninsured.bottom.states = svi.sig.uninsured.bottom$STATE
 # "Massachusetts" "Hawaii"        "Vermont"       *"Minnesota"*     "Iowa"   
 
-svi.pop.sig.top <- svi.mortality %>%
-  slice_max(population.density, n = svi.sigl.crit)
+svi.pop.sig.top <- svi.mortality.pop %>%
+  slice_max(pop.log, n = svi.sigl.crit)
 svi.pop.sig.top.states = svi.pop.sig.top$STATE
 # "New Jersey"    "Rhode Island"  "Massachusetts" "Connecticut"   "Maryland"    
 
-svi.pop.sig.bottom <- svi.mortality %>%
-  slice_min(population.density, n = svi.sigl.crit)
+svi.pop.sig.bottom <- svi.mortality.pop %>%
+  slice_min(pop.log, n = svi.sigl.crit)
 svi.pop.sig.bottom.states = svi.pop.sig.bottom$STATE
 # "Alaska"       "Wyoming"      "Montana"      "North Dakota" "South Dakota"
 
@@ -2679,7 +2679,7 @@ uninsured.graph <- ggplot(data=svi.mortality,aes(x=uninsured.rate,y=mortality.av
   ggtitle("linear regression of uninsured rate on mortality rates")
 
 
-pop.graph <- ggplot(data=svi.mortality.pop,aes(x=population.density,y=mortality.avg)) +
+pop.graph <- ggplot(data=svi.mortality.pop,aes(x=pop.log,y=mortality.avg)) +
 #  geom_jitter(colour="dark green", alpha=0.7) +
   geom_smooth(method = "lm",
               formula = y ~ x,
@@ -2911,9 +2911,264 @@ mobility.active.graph.bottom
 ```
 
 ```{r}
+retail.active.Rsquare <- c()
+grocery.active.Rsquare <- c()
+parks.active.Rsquare <- c()
+transit.active.Rsquare <- c()
+workplace.active.Rsquare <- c()
+residential.active.Rsquare <- c()
+
+retail.active.F <- c()
+grocery.active.F <- c()
+parks.active.F <- c()
+transit.active.F <- c()
+workplace.active.F <- c()
+residential.active.F <- c()
+
+retail.active.pval <- c()
+grocery.active.pval <- c()
+parks.active.pval <- c()
+transit.active.pval <- c()
+workplace.active.pval <- c()
+residential.active.pval <- c()
+
+# svi.pop.top.states
+#  [1] "New Jersey"    "Rhode Island"  "Massachusetts" "Connecticut"   "Maryland"      "Delaware"      "New York"      "Florida"       "Pennsylvania"
+# [10] "Ohio" 
+
+# svi.pop.bottom.states
+#  [1] "Alaska"       "Wyoming"      "Montana"      "North Dakota" "South Dakota" "New Mexico"   "Idaho"        "Nebraska"     "Nevada"      
+# [10] "Kansas"
+
+mobility.active.all <- mobility.active %>%
+  group_by(state, biweek) %>%
+  summarise(mean.active = active.avg,
+            mean.mobility = mean(c(retail.recreation.avg, grocery.pharmacy.avg, parks.avg, transit.avg, workplace.avg, residential.avg), na.rm = TRUE),
+            mean.retail.recreation = mean(retail.recreation.avg, na.rm = TRUE),
+            mean.grocery.pharmacy = mean(grocery.pharmacy.avg, na.rm = TRUE),
+            mean.parks = mean(parks.avg, na.rm = TRUE),
+            mean.transit = mean(transit.avg, na.rm = TRUE),
+            mean.workplace = mean(workplace.avg, na.rm = TRUE),
+            mean.residential = mean(residential.avg, na.rm = TRUE))
+
+for (s in svi.pop.top.states) {
+  mobility.active.s <- mobility.active.all %>% 
+    filter(state == s)
+  
+  mobility.active.s.lm <- lm(mean.active ~ mean.mobility, data = mobility.active.s)
+  mobility.active.s.res <- residuals(mobility.active.s.lm)
+  
+  # retail and recreation
+  retail.mobility.s.lm <- lm(mean.retail.recreation ~ mean.mobility, data = mobility.active.s)
+  retail.s.res <- residuals(retail.mobility.s.lm)
+  # below is lm(residual ~ residual)
+  retail.s.lm <- lm(mobility.active.s.res ~ retail.s.res)
+  retail.s.sum <- summary(retail.s.lm)
+  # r squared = 0.4398 ***
+  
+  # grocery and pharmacy
+  grocery.pharmacy.mobility.s.lm <- lm(mean.grocery.pharmacy ~ mean.mobility, data = mobility.active.s)
+  grocery.s.res <- residuals(grocery.pharmacy.mobility.s.lm)
+  # below is lm(residual ~ residual)
+  grocery.s.lm <- lm(mobility.active.s.res ~ grocery.s.res)
+  grocery.s.sum <- summary(grocery.s.lm)
+  # r squared =  0.1935 not significant 
+  
+  # parks
+  parks.mobility.s.lm <- lm(mean.parks ~ mean.mobility, na.action=na.exclude, data = mobility.active.s)
+  # below is lm(residual ~ residual)
+  parks.s.res <- residuals(parks.mobility.s.lm)
+  parks.s.lm <- lm(mobility.active.s.res ~ parks.s.res)
+  parks.s.sum <- summary(parks.s.lm)
+  # r squared = 0.5391 ** 
+  
+  # transit
+  transit.mobility.s.lm <- lm(mean.transit ~ mean.mobility, data = mobility.active.s)
+  # below is lm(residual ~ residual)
+  transit.s.res <- residuals(transit.mobility.s.lm)
+  transit.s.lm <- lm(mobility.active.s.res ~ transit.s.res)
+  transit.s.sum <- summary(transit.s.lm)
+  # r squared = 0.6077 **
+  
+  # workplace
+  workplace.mobility.s.lm <- lm(mean.workplace ~ mean.mobility, data = mobility.active.s)
+  workplace.s.res <- residuals(workplace.mobility.s.lm)
+  # below is lm(residual ~ residual)
+  workplace.s.lm <- lm(mobility.active.s.res ~ workplace.s.res)
+  workplace.s.sum <- summary(workplace.s.lm)
+  # r squared =  0.6329 ***
+
+  # residential
+  residential.mobility.s.lm <- lm(mean.residential ~ mean.mobility, data = mobility.active.s)
+  residential.s.res <- residuals(residential.mobility.s.lm)
+  # below is lm(residual ~ residual)
+  residential.s.lm <- lm(mobility.active.s.res ~ residential.s.res)
+  residential.s.sum <- summary(residential.s.lm)
+  # r squared = 0.658 ***
+  # residential.s.df <- data.frame(mobility.active.s.res, residential.s.res)
+
+  # r square
+  retail.active.Rsquare <- append(retail.active.Rsquare, retail.s.sum$r.squared)
+  grocery.active.Rsquare <- append(grocery.active.Rsquare, grocery.s.sum$r.squared)
+  parks.active.Rsquare <- append(parks.active.Rsquare, parks.s.sum$r.squared)
+  transit.active.Rsquare <- append(transit.active.Rsquare, transit.s.sum$r.squared)
+  workplace.active.Rsquare <- append(workplace.active.Rsquare, workplace.s.sum$r.squared)
+  residential.active.Rsquare <- append(residential.active.Rsquare, residential.s.sum$r.squared)
+
+  # F value
+  # retail.active.F <- append(retail.active.F, retail.s.sum$fstatistic)
+  # grocery.active.F <- append(grocery.active.F, grocery.s.sum$fstatistic)
+  # parks.active.F <- append(parks.active.F, parks.s.sum$fstatistic)
+  # transit.active.F <- append(transit.active.F, transit.s.sum$fstatistic)
+  # workplace.active.F <- append(workplace.active.F, workplace.s.sum$fstatistic)
+  # residential.active.F <- append(residential.active.F, residential.s.sum$fstatistic)
+
+  # p value
+  retail.active.pval <- append(retail.active.pval, retail.s.sum$coefficients[2,4])
+  grocery.active.pval <- append(grocery.active.pval, grocery.s.sum$coefficients[2,4])
+  parks.active.pval <- append(parks.active.pval, parks.s.sum$coefficients[2,4])
+  transit.active.pval <- append(transit.active.pval, transit.s.sum$coefficients[2,4])
+  workplace.active.pval <- append(workplace.active.pval, workplace.s.sum$coefficients[2,4])
+  residential.active.pval <- append(residential.active.pval, residential.s.sum$coefficients[2,4])
+
+  # mse
+  # retail.active.mse <- append(retail.active.mse, mean(retail.s.sum$residuals ^ 2))
+  # grocery.active.mse <- append(grocery.active.mse, mean(grocery.s.sum$residuals ^ 2))
+  # parks.active.mse <- append(parks.active.mse, mean(parks.s.sum$r.squared ^ 2))
+  # transit.active.mse <- append(transit.active.mse, mean(transit.s.sum$r.squared ^ 2))
+  # workplace.active.mse <- append(workplace.active.mse, mean(workplace.s.sum$r.squared ^ 2))
+  # residential.active.mse <- append(residential.active.mse, mean(residential.s.sum$r.squared ^ 2))
+}
+
+for (s in svi.pop.bottom.states) {
+  mobility.active.s <- mobility.active.all %>% 
+    filter(state == s)
+  
+  mobility.active.s.lm <- lm(mean.active ~ mean.mobility, data = mobility.active.s)
+  mobility.active.s.res <- residuals(mobility.active.s.lm)
+  
+  # retail and recreation
+  retail.mobility.s.lm <- lm(mean.retail.recreation ~ mean.mobility, data = mobility.active.s)
+  retail.s.res <- residuals(retail.mobility.s.lm)
+  # below is lm(residual ~ residual)
+  retail.s.lm <- lm(mobility.active.s.res ~ retail.s.res)
+  retail.s.sum <- summary(retail.s.lm)
+  # r squared = 0.4398 ***
+  
+  # grocery and pharmacy
+  grocery.pharmacy.mobility.s.lm <- lm(mean.grocery.pharmacy ~ mean.mobility, data = mobility.active.s)
+  grocery.s.res <- residuals(grocery.pharmacy.mobility.s.lm)
+  # below is lm(residual ~ residual)
+  grocery.s.lm <- lm(mobility.active.s.res ~ grocery.s.res)
+  grocery.s.sum <- summary(grocery.s.lm)
+  # r squared =  0.1935 not significant 
+  
+  # parks
+  parks.mobility.s.lm <- lm(mean.parks ~ mean.mobility, na.action=na.exclude, data = mobility.active.s)
+  # below is lm(residual ~ residual)
+  parks.s.res <- residuals(parks.mobility.s.lm)
+  parks.s.lm <- lm(mobility.active.s.res ~ parks.s.res)
+  parks.s.sum <- summary(parks.s.lm)
+  # r squared = 0.5391 ** 
+  
+  # transit
+  transit.mobility.s.lm <- lm(mean.transit ~ mean.mobility, na.action=na.exclude, data = mobility.active.s)
+  # below is lm(residual ~ residual)
+  transit.s.res <- residuals(transit.mobility.s.lm)
+  transit.s.lm <- lm(mobility.active.s.res ~ transit.s.res)
+  transit.s.sum <- summary(transit.s.lm)
+  # r squared = 0.6077 **
+  
+  # workplace
+  workplace.mobility.s.lm <- lm(mean.workplace ~ mean.mobility, data = mobility.active.s)
+  workplace.s.res <- residuals(workplace.mobility.s.lm)
+  # below is lm(residual ~ residual)
+  workplace.s.lm <- lm(mobility.active.s.res ~ workplace.s.res)
+  workplace.s.sum <- summary(workplace.s.lm)
+  # r squared =  0.6329 ***
+
+  # residential
+  residential.mobility.s.lm <- lm(mean.residential ~ mean.mobility, data = mobility.active.s)
+  residential.s.res <- residuals(residential.mobility.s.lm)
+  # below is lm(residual ~ residual)
+  residential.s.lm <- lm(mobility.active.s.res ~ residential.s.res)
+  residential.s.sum <- summary(residential.s.lm)
+  # r squared = 0.658 ***
+  # residential.s.df <- data.frame(mobility.active.s.res, residential.s.res)
+
+  # r square
+  retail.active.Rsquare <- append(retail.active.Rsquare, retail.s.sum$r.squared)
+  grocery.active.Rsquare <- append(grocery.active.Rsquare, grocery.s.sum$r.squared)
+  parks.active.Rsquare <- append(parks.active.Rsquare, parks.s.sum$r.squared)
+  transit.active.Rsquare <- append(transit.active.Rsquare, transit.s.sum$r.squared)
+  workplace.active.Rsquare <- append(workplace.active.Rsquare, workplace.s.sum$r.squared)
+  residential.active.Rsquare <- append(residential.active.Rsquare, residential.s.sum$r.squared)
+
+  # F value
+  # retail.active.F <- append(retail.active.F, retail.s.sum$fstatistic)
+  # grocery.active.F <- append(grocery.active.F, grocery.s.sum$fstatistic)
+  # parks.active.F <- append(parks.active.F, parks.s.sum$fstatistic)
+  # transit.active.F <- append(transit.active.F, transit.s.sum$fstatistic)
+  # workplace.active.F <- append(workplace.active.F, workplace.s.sum$fstatistic)
+  # residential.active.F <- append(residential.active.F, residential.s.sum$fstatistic)
+
+  # p value
+  retail.active.pval <- append(retail.active.pval, retail.s.sum$coefficients[2,4])
+  grocery.active.pval <- append(grocery.active.pval, grocery.s.sum$coefficients[2,4])
+  parks.active.pval <- append(parks.active.pval, parks.s.sum$coefficients[2,4])
+  transit.active.pval <- append(transit.active.pval, transit.s.sum$coefficients[2,4])
+  workplace.active.pval <- append(workplace.active.pval, workplace.s.sum$coefficients[2,4])
+  residential.active.pval <- append(residential.active.pval, residential.s.sum$coefficients[2,4])
+
+  # mse
+  # retail.active.mse <- append(retail.active.mse, mean(retail.s.sum$residuals ^ 2))
+  # grocery.active.mse <- append(grocery.active.mse, mean(grocery.s.sum$residuals ^ 2))
+  # parks.active.mse <- append(parks.active.mse, mean(parks.s.sum$r.squared ^ 2))
+  # transit.active.mse <- append(transit.active.mse, mean(transit.s.sum$r.squared ^ 2))
+  # workplace.active.mse <- append(workplace.active.mse, mean(workplace.s.sum$r.squared ^ 2))
+  # residential.active.mse <- append(residential.active.mse, mean(residential.s.sum$r.squared ^ 2))
+}
+
+# tmp <- summary(lm(active.avg ~ retail.recreation.avg, mobility.active.Iowa))
+# tmp$coefficients[2,4]
+rsquares <- data.frame(state = c(svi.pop.top.states, svi.pop.bottom.states), category = c(rep('Top', svi.sig.crit), rep('Bottom', svi.sig.crit)), 
+                       retail.Rsquare = retail.active.Rsquare, grocery.Rsquare = grocery.active.Rsquare,
+                       parks.Rsquare = parks.active.Rsquare, transit.Rsquare = transit.active.Rsquare,
+                       workplace.Rsquare = workplace.active.Rsquare, residential.Rsquare = residential.active.Rsquare)
+
+# fstatistics <- data.frame(state = US.states, retail.F = retail.active.F, grocery.F = grocery.active.F,
+#                           parks.F = parks.active.F, transit.F = transit.active.F,
+#                           workplace.F = workplace.active.F, residential.F = residential.active.F)
+
+pvals <- data.frame(state = c(svi.pop.top.states, svi.pop.bottom.states), category = c(rep('Top', svi.sig.crit), rep('Bottom', svi.sig.crit)), 
+                    retail.pval = retail.active.pval, grocery.pval = grocery.active.pval,
+                    parks.pval = parks.active.pval, transit.pval = transit.active.pval,
+                    workplace.pval = workplace.active.pval, residential.pval = residential.active.pval)
+
+# mses <- data.frame(state = US.states, retail.mse = retail.active.mse, grocery.mse = grocery.active.mse,
+#                    parks.mse = parks.active.mse, transit.mse = transit.active.mse,
+#                    workplace.mse = workplace.active.mse, residential.mse = residential.active.mse)
+# c(rsquares, pvals)
+
 ```
 
+```{r}
+rsquares.top <- rsquares %>% filter(category == 'Top')
+rsquares.bottom <- rsquares %>% filter(category == 'Bottom')
+retail.t.sum <- t.test(rsquares.top$retail.Rsquare, rsquares.bottom$retail.Rsquare, var.equal = T)
 
+grocery.t.sum <- t.test(rsquares.top$grocery.Rsquare, rsquares.bottom$grocery.Rsquare, var.equal = T)
+
+parks.t.sum <- t.test(rsquares.top$parks.Rsquare, rsquares.bottom$parks.Rsquare, var.equal = T)
+
+transit.t.sum <- t.test(rsquares.top$transit.Rsquare, rsquares.bottom$transit.Rsquare, var.equal = T)
+
+workplace.t.sum <- t.test(rsquares.top$workplace.Rsquare, rsquares.bottom$workplace.Rsquare, var.equal = T)
+
+residential.t.sum <- t.test(rsquares.top$residential.Rsquare, rsquares.bottom$residential.Rsquare, var.equal = T)
+
+anova(lm(data = rsquares, grocery.Rsquare ~ category))
+```
 
 
 # Other stuff
@@ -3027,7 +3282,6 @@ mses <- data.frame(state = US.states, retail.mse = retail.active.mse, grocery.ms
                    parks.mse = parks.active.mse, transit.mse = transit.active.mse,
                    workplace.mse = workplace.active.mse, residential.mse = residential.active.mse)
 
-mobility.active
 ```
 
 
