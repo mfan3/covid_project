@@ -2713,68 +2713,79 @@ svi.pop.top.states
 # [10] "Ohio"  
 
 
+
+
 mobility.active.top <- mobility.active %>%
   filter(state %in% svi.pop.top.states) %>%
   group_by(state, biweek) %>%
   summarise(active.mean = active.avg,
-            mobility.mean = mean(c(retail.recreation.avg, grocery.pharmacy.avg, parks.avg, transit.avg, workplace.avg, residential.avg)),
-            retail.recreation.mean = mean(retail.recreation.avg),
-            grocery.pharmacy.mean = mean(grocery.pharmacy.avg),
-            parks.mean = mean(parks.avg),
-            transit.mean = mean(transit.avg),
-            workplace.mean = mean(workplace.avg),
-            residential.mean = mean(residential.avg))
+            mobility.mean = mean(c(retail.recreation.avg, grocery.pharmacy.avg, parks.avg, transit.avg, workplace.avg, residential.avg), na.rm = TRUE),
+            retail.recreation.mean = mean(retail.recreation.avg, na.rm = TRUE),
+            grocery.pharmacy.mean = mean(grocery.pharmacy.avg, na.rm = TRUE),
+            parks.mean = mean(parks.avg, na.rm = TRUE),
+            transit.mean = mean(transit.avg, na.rm = TRUE),
+            workplace.mean = mean(workplace.avg, na.rm = TRUE),
+            residential.mean = mean(residential.avg, na.rm = TRUE)) %>%
+  group_by(biweek) %>%
+  summarise(mean.active = mean(active.mean),
+            mean.mobility = mean(mobility.mean, na.rm = TRUE) ,
+            mean.retail.recreation = mean(retail.recreation.mean, na.rm = TRUE),
+            mean.grocery.pharmacy = mean(grocery.pharmacy.mean, na.rm = TRUE),
+            mean.parks = mean(parks.mean, na.rm = TRUE),
+            mean.transit = mean(transit.mean, na.rm = TRUE),
+            mean.workplace = mean(workplace.mean, na.rm = TRUE),
+            mean.residenstial = mean(residential.mean, na.rm = TRUE))
 
-mobility.active.top.lm <- lm(active.mean ~ mobility.mean, data = mobility.active.top)
+mobility.active.top.lm <- lm(mean.active ~ mean.mobility, data = mobility.active.top)
 mobility.active.top.res <- residuals(mobility.active.top.lm)
 
 # retail and recreation
-retail.mobility.top.lm <- lm(retail.recreation.mean ~ mobility.mean, data = mobility.active.top)
+retail.mobility.top.lm <- lm(mean.retail.recreation ~ mean.mobility, data = mobility.active.top)
 retail.top.res <- residuals(retail.mobility.top.lm)
 # below is lm(residual ~ residual)
 retail.top.lm <- lm(mobility.active.top.res ~ retail.top.res)
 retail.top.sum <- summary(retail.top.lm)
-# r squared = 0.01497
+# r squared = 0.891 ***
 
 # grocery and pharmacy
-grocery.pharmacy.mobility.top.lm <- lm(grocery.pharmacy.mean ~ mobility.mean, data = mobility.active.top)
+grocery.pharmacy.mobility.top.lm <- lm(mean.grocery.pharmacy ~ mean.mobility, data = mobility.active.top)
 grocery.top.res <- residuals(grocery.pharmacy.mobility.top.lm)
 # below is lm(residual ~ residual)
 grocery.top.lm <- lm(mobility.active.top.res ~ grocery.top.res)
 grocery.top.sum <- summary(grocery.top.lm)
-# r squared = 0.006153
+# r squared = 0.04013 not significant 
 
 # parks  
-parks.mobility.top.lm <- lm(parks.mean ~ mobility.mean, data = mobility.active.top)
+parks.mobility.top.lm <- lm(mean.parks ~ mean.mobility, data = mobility.active.top)
 parks.top.res <- residuals(parks.mobility.top.lm)
 # below is lm(residual ~ residual)
 parks.top.lm <- lm(mobility.active.top.res ~ parks.top.res)
 parks.top.sum <- summary(parks.top.lm)
-# r squared = 0.00488
+# r squared = 0.7102 *** 
 
 # transit
-transit.mobility.top.lm <- lm(transit.mean ~ mobility.mean, data = mobility.active.top)
+transit.mobility.top.lm <- lm(mean.transit ~ mean.mobility, data = mobility.active.top)
 transit.top.res <- residuals(transit.mobility.top.lm)
 # below is lm(residual ~ residual)
 transit.top.lm <- lm(mobility.active.top.res ~ transit.top.res)
 transit.top.sum <- summary(transit.top.lm)
-# r squared = 0.05271
+# r squared = 0.7711 ***
 
 # workplace
-workplace.mobility.top.lm <- lm(workplace.mean ~ mobility.mean, data = mobility.active.top)
+workplace.mobility.top.lm <- lm(mean.workplace ~ mean.mobility, data = mobility.active.top)
 workplace.top.res <- residuals(workplace.mobility.top.lm)
 # below is lm(residual ~ residual)
 workplace.top.lm <- lm(mobility.active.top.res ~ workplace.top.res)
 workplace.top.sum <- summary(workplace.top.lm)
-# r squraed = 0.05266
+# r squraed = 0.8148 ***
 
 # residential
-residential.mobility.top.lm <- lm(residential.mean ~ mobility.mean, data = mobility.active.top)
+residential.mobility.top.lm <- lm(mean.residenstial ~ mean.mobility, data = mobility.active.top)
 residential.top.res <- residuals(residential.mobility.top.lm)
 # below is lm(residual ~ residual)
 residential.top.lm <- lm(mobility.active.top.res ~ residential.top.res)
 residential.top.sum <- summary(residential.top.lm)
-# r squared = 0.07156
+# r squared = 0.9056 ***
 ```
 
 
@@ -2792,71 +2803,80 @@ mobility.active.bottom <- mobility.active %>%
   filter(state %in% svi.pop.bottom.states) %>%
   group_by(state, biweek) %>%
   summarise(active.mean = active.avg,
-            mobility.mean = mean(c(retail.recreation.avg, grocery.pharmacy.avg, parks.avg, transit.avg, workplace.avg, residential.avg)),
-            retail.recreation.mean = mean(retail.recreation.avg),
-            grocery.pharmacy.mean = mean(grocery.pharmacy.avg),
-            parks.mean = mean(parks.avg),
-            transit.mean = mean(transit.avg),
-            workplace.mean = mean(workplace.avg),
-            residential.mean = mean(residential.avg))
+            mobility.mean = mean(c(retail.recreation.avg, grocery.pharmacy.avg, parks.avg, transit.avg, workplace.avg, residential.avg), na.rm = TRUE),
+            retail.recreation.mean = mean(retail.recreation.avg, na.rm = TRUE),
+            grocery.pharmacy.mean = mean(grocery.pharmacy.avg, na.rm = TRUE),
+            parks.mean = mean(parks.avg, na.rm = TRUE),
+            transit.mean = mean(transit.avg, na.rm = TRUE),
+            workplace.mean = mean(workplace.avg, na.rm = TRUE),
+            residential.mean = mean(residential.avg, na.rm = TRUE)) %>%
+  group_by(biweek) %>%
+  summarise(mean.active = mean(active.mean),
+            mean.mobility = mean(mobility.mean, na.rm = TRUE) ,
+            mean.retail.recreation = mean(retail.recreation.mean, na.rm = TRUE),
+            mean.grocery.pharmacy = mean(grocery.pharmacy.mean, na.rm = TRUE),
+            mean.parks = mean(parks.mean, na.rm = TRUE),
+            mean.transit = mean(transit.mean, na.rm = TRUE),
+            mean.workplace = mean(workplace.mean, na.rm = TRUE),
+            mean.residenstial = mean(residential.mean, na.rm = TRUE))
 
 
-mobility.active.bottom.lm <- lm(active.mean ~ mobility.mean, data = mobility.active.bottom)
+mobility.active.bottom.lm <- lm(mean.active ~ mean.mobility, data = mobility.active.bottom)
 mobility.active.bottom.res <- residuals(mobility.active.bottom.lm)
 
 # retail and recreation
-retail.mobility.bottom.lm <- lm(retail.recreation.mean ~ mobility.mean, data = mobility.active.bottom)
+retail.mobility.bottom.lm <- lm(mean.retail.recreation ~ mean.mobility, data = mobility.active.bottom)
 retail.bottom.res <- residuals(retail.mobility.bottom.lm)
 # below is lm(residual ~ residual)
 retail.bottom.lm <- lm(mobility.active.bottom.res ~ retail.bottom.res)
 retail.bottom.sum <- summary(retail.bottom.lm)
-# r squared = 0.1326 
+# r squared = 0.4398 ***
 
 # grocery and pharmacy
-grocery.pharmacy.mobility.bottom.lm <- lm(grocery.pharmacy.mean ~ mobility.mean, data = mobility.active.bottom)
+grocery.pharmacy.mobility.bottom.lm <- lm(mean.grocery.pharmacy ~ mean.mobility, data = mobility.active.bottom)
 grocery.bottom.res <- residuals(grocery.pharmacy.mobility.bottom.lm)
 # below is lm(residual ~ residual)
 grocery.bottom.lm <- lm(mobility.active.bottom.res ~ grocery.bottom.res)
 grocery.bottom.sum <- summary(grocery.bottom.lm)
-# r squared =  0.06768
+# r squared =  0.1935 not significant 
 
 # parks
-parks.mobility.bottom.lm <- lm(parks.mean ~ mobility.mean, data = mobility.active.bottom)
+parks.mobility.bottom.lm <- lm(mean.parks ~ mean.mobility, data = mobility.active.bottom)
 # below is lm(residual ~ residual)
 parks.bottom.res <- residuals(parks.mobility.bottom.lm)
 parks.bottom.lm <- lm(mobility.active.bottom.res ~ parks.bottom.res)
 parks.bottom.sum <- summary(parks.bottom.lm)
-# r squared = 0.05142
+# r squared = 0.5391 ** 
 
 # transit
-transit.mobility.bottom.lm <- lm(transit.mean ~ mobility.mean, data = mobility.active.bottom)
+transit.mobility.bottom.lm <- lm(mean.transit ~ mean.mobility, data = mobility.active.bottom)
 # below is lm(residual ~ residual)
 transit.bottom.res <- residuals(transit.mobility.bottom.lm)
 transit.bottom.lm <- lm(mobility.active.bottom.res ~ transit.bottom.res)
 transit.bottom.sum <- summary(transit.bottom.lm)
-# r squared = 0.05271
+# r squared = 0.6077 **
 
 # workplace
-workplace.mobility.bottom.lm <- lm(workplace.mean ~ mobility.mean, data = mobility.active.bottom)
+workplace.mobility.bottom.lm <- lm(mean.workplace ~ mean.mobility, data = mobility.active.bottom)
 workplace.bottom.res <- residuals(workplace.mobility.bottom.lm)
 # below is lm(residual ~ residual)
 workplace.bottom.lm <- lm(mobility.active.bottom.res ~ workplace.bottom.res)
 workplace.bottom.sum <- summary(workplace.bottom.lm)
-# r squared =  0.08796
+# r squared =  0.6329 ***
 
 
 # residential
-residential.mobility.bottom.lm <- lm(residential.mean ~ mobility.mean, data = mobility.active.bottom)
+residential.mobility.bottom.lm <- lm(mean.residenstial ~ mean.mobility, data = mobility.active.bottom)
 residential.bottom.res <- residuals(residential.mobility.bottom.lm)
 # below is lm(residual ~ residual)
 residential.bottom.lm <- lm(mobility.active.bottom.res ~ residential.bottom.res)
 residential.bottom.sum <- summary(residential.bottom.lm)
-# r squared = 0.2232
+# r squared = 0.658 ***
 residential.bottom.df <- data.frame(mobility.active.bottom.res, residential.bottom.res)
 
 
 residential.bottom.graph <- ggplot(data=residential.bottom.df,aes(x=residential.bottom.res,y=mobility.active.bottom.res)) +
-#  geom_jitter(colour="dark green", alpha=0.7) +
+  geom_jitter(colour="dark green", alpha=0.7) +
   geom_smooth(method = "lm",
               formula = y ~ x,
               col = "dark green") +
@@ -2867,17 +2887,17 @@ residential.bottom.graph <- ggplot(data=residential.bottom.df,aes(x=residential.
 # when residual of residential increase, the residual of active cases to average mobility decreases 
 
 
-residential.bottom.graph <- ggplot(data=mobility.active.bottom,aes(x=residential.mean,y=mobility.mean)) +
-#  geom_jitter(colour="dark green", alpha=0.7) +
+residential.bottom.graph <- ggplot(data=mobility.active.bottom,aes(x=mobility.mean,y=active.mean)) +
+  geom_jitter(colour="dark green", alpha=0.7) +
   geom_smooth(method = "lm",
               formula = y ~ x,
               col = "dark green") +
-  labs(x = "residential.mean",
-       y = "mobility.mean") +
+  labs(x = "mobility.mean",
+       y = "active.mean") +
   theme_bw() +
   ggtitle("linear regression of population density on mortality rates")
 
-mobility.active.graph <- ggplot(data=mobility.active.bottom,aes(x=mobility.mean, y=active.mean)) +
+mobility.active.graph.bottom <- ggplot(data=mobility.active.bottom,aes(x=mobility.mean, y=active.mean)) +
 #  geom_jitter(colour="dark green", alpha=0.7) +
   geom_smooth(method = "lm",
               formula = y ~ x,
@@ -2887,8 +2907,14 @@ mobility.active.graph <- ggplot(data=mobility.active.bottom,aes(x=mobility.mean,
   theme_bw() +
   ggtitle("linear regression of mobility mean on COVID-19 active cases mean")
 
-
+mobility.active.graph.bottom
 ```
+
+```{r}
+```
+
+
+
 
 # Other stuff
 ```{r}
