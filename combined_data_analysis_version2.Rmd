@@ -21,10 +21,10 @@ The CDC data provided us with demographic information such as poverty rates, inc
 
 For convenice, jump to **Graphs** to view visual representation.
 
-# Data cleaning 
+# Data cleaning
 ## Importing packages
 ```{r, message=FALSE}
-library(tidyverse) 
+library(tidyverse)
 library(dplyr)     
 ```
 
@@ -33,7 +33,7 @@ library(dplyr)
 selecting relevant indices (refer to codebook)
 ```{r, message=FALSE}
 svi.raw <- read_csv("./datasets/SVI2018_US_COUNTY.csv")
-svi.raw %>% 
+svi.raw %>%
   select(STATE,
          COUNTY,
          FIPS,
@@ -65,11 +65,11 @@ svi.selected[svi.selected == "-999"] <- NA
 
 further cleaning svi data and calculating total amount of variables
 ```{r, message=FALSE}
-svi.selected %>% 
-  # PCI is per capita income 
-  # calculating total income to derive statewide per capita income later 
-  mutate(income = E_TOTPOP * E_PCI) %>% 
-  group_by(STATE) %>% 
+svi.selected %>%
+  # PCI is per capita income
+  # calculating total income to derive statewide per capita income later
+  mutate(income = E_TOTPOP * E_PCI) %>%
+  group_by(STATE) %>%
   summarise(area = sum(AREA_SQMI),
             # aggregating to state level
             total.population = sum(E_TOTPOP),
@@ -115,7 +115,7 @@ svi.state %>%
 ## Data cleaning for unemployment data
 ```{r, message=FALSE, warning=FALSE}
 unemployment.2020.raw <- read_csv("./datasets/unemployment2020.csv")
-unemployment.2020.data <- 
+unemployment.2020.data <-
   unemployment.2020.raw[,colSums(is.na(unemployment.2020.raw))<nrow(unemployment.2020.raw)]
 unemployment.2020 <- na.omit(unemployment.2020.data)
 svi.state %>%
@@ -131,10 +131,10 @@ svi.state$STATE <- str_to_title(svi.state$STATE[1:51])
 
 combining unemployment data
 ```{r}
-unemployment <- cbind(unemployment.2018, unemployment.2020) %>% 
-  mutate(unemployed.rate = round(unemployed.rate * 100, digit = 1)) %>% 
-  rename(unemployment.rate.2018 = unemployed.rate) %>% 
-  select(-c(STATE)) %>% # select everything but 
+unemployment <- cbind(unemployment.2018, unemployment.2020) %>%
+  mutate(unemployed.rate = round(unemployed.rate * 100, digit = 1)) %>%
+  rename(unemployment.rate.2018 = unemployed.rate) %>%
+  select(-c(STATE)) %>% # select everything but
   rename(state = State,
          Jan = Jan.,
          Feb = Feb.,
@@ -147,7 +147,7 @@ unemployment <- cbind(unemployment.2018, unemployment.2020) %>%
          Sep = Sept.) %>%
   pivot_longer(-c(state, unemployment.rate.2018),
                names_to = "month",
-               values_to = "unemployment.rate.2020") %>% 
+               values_to = "unemployment.rate.2020") %>%
   mutate(month = match(month, month.abb))
 
 unemployments <- unemployment[c(2, 3, 1, 4)]
@@ -166,16 +166,16 @@ cleaning JHU covid death historical dateset
 ```{r, message=FALSE}
 # Exclude these states
 # American Samoa, Diamond Princess, Grand Princess, Guam, Northern Mariana Islands, Puerto Rico, Virgin Islands
-covid.death <- covid.death.raw %>% 
+covid.death <- covid.death.raw %>%
   select(-c(UID, iso2, iso3, code3, FIPS, Admin2, Country_Region, Lat, Long_, Combined_Key)) %>%
-  rename(state = Province_State, population = Population) %>% 
+  rename(state = Province_State, population = Population) %>%
   group_by(state) %>% # Specify group indicator
   summarise(across(everything(), sum)) %>% # Specify column
   pivot_longer(-c(state, population),
                names_to = "date",
-               values_to = "cumulative.death.cases") %>% 
-  filter(state %in% c(state.name, "District of Columbia")) %>% 
-  group_by(state) %>% 
+               values_to = "cumulative.death.cases") %>%
+  filter(state %in% c(state.name, "District of Columbia")) %>%
+  group_by(state) %>%
   mutate(death.cases = cumulative.death.cases - lag(cumulative.death.cases),
          date = as.Date(date, format = "%m/%d/%y"),
          month = match(months(date), month.name),
@@ -183,8 +183,8 @@ covid.death <- covid.death.raw %>%
 
 # fix negative cumulative cases
 while (any(covid.death$death.cases < 0)) {
-  covid.death <- covid.death %>% 
-    mutate(cumulative.death.cases = ifelse(cumulative.death.cases < lag(cumulative.death.cases), 
+  covid.death <- covid.death %>%
+    mutate(cumulative.death.cases = ifelse(cumulative.death.cases < lag(cumulative.death.cases),
                                            lag(cumulative.death.cases), # if smaller than previous
                                            cumulative.death.cases), # if not
            cumulative.death.cases = replace_na(cumulative.death.cases, 0),
@@ -203,24 +203,24 @@ covid.confirmed.raw <- read_csv("./datasets/csse_covid_19_time_series/time_serie
 
 cleaning JHU covid confirmed historical dateset
 ```{r, message=FALSE}
-covid.confirmed <- covid.confirmed.raw %>% 
+covid.confirmed <- covid.confirmed.raw %>%
   select(-c(UID, iso2, iso3, code3, FIPS, Admin2, Country_Region, Lat, Long_, Combined_Key)) %>%
-  rename(state = Province_State) %>% 
+  rename(state = Province_State) %>%
   group_by(state) %>% # Specify group indicator
   summarise(across(everything(), sum)) %>% # Specify column
   pivot_longer(-c(state),
                names_to = "date",
-               values_to = "cumulative.confirmed.cases") %>% 
-  filter(state %in% c(state.name, "District of Columbia")) %>% 
-  group_by(state) %>% 
+               values_to = "cumulative.confirmed.cases") %>%
+  filter(state %in% c(state.name, "District of Columbia")) %>%
+  group_by(state) %>%
   mutate(confirmed.cases = cumulative.confirmed.cases - lag(cumulative.confirmed.cases),
-         date = as.Date(date, format = "%m/%d/%y"), 
+         date = as.Date(date, format = "%m/%d/%y"),
          confirmed.cases = replace_na(confirmed.cases, 0))
 
 # fix negative cumulative cases
 while (any(covid.confirmed$confirmed.cases < 0)) {
-  covid.confirmed <- covid.confirmed %>% 
-    mutate(cumulative.confirmed.cases = ifelse(cumulative.confirmed.cases < lag(cumulative.confirmed.cases), 
+  covid.confirmed <- covid.confirmed %>%
+    mutate(cumulative.confirmed.cases = ifelse(cumulative.confirmed.cases < lag(cumulative.confirmed.cases),
                                          lag(cumulative.confirmed.cases), # if smaller than previous
                                          cumulative.confirmed.cases), # if not
            cumulative.confirmed.cases = replace_na(cumulative.confirmed.cases, 0),
@@ -238,30 +238,30 @@ dates <- format(seq(from = as.Date("2020/04/13"), to = as.Date("2020/10/24"), by
 date = "04-12-2020"
 reports.raw <- read_csv(paste("./datasets/csse_covid_19_daily_reports_us/", date, ".csv", sep = ""))
 report <- reports.raw %>%
-  select(-c(Country_Region, Last_Update, Lat, Long_, Confirmed, Deaths, FIPS, UID, ISO3)) %>% 
+  select(-c(Country_Region, Last_Update, Lat, Long_, Confirmed, Deaths, FIPS, UID, ISO3)) %>%
   rename(state = Province_State,
          recovered.cases = Recovered,
-         active.cases = Active, 
+         active.cases = Active,
          incident.rate = Incident_Rate, # positive results per 100,000 persons.
          people.tested = People_Tested,
          people.hospitalized = People_Hospitalized,
          mortality.rate = Mortality_Rate,
          testing.rate = Testing_Rate,
-         hospitalization.rate = Hospitalization_Rate) %>% 
-  filter(state %in% c(state.name, "District of Columbia")) %>% 
+         hospitalization.rate = Hospitalization_Rate) %>%
+  filter(state %in% c(state.name, "District of Columbia")) %>%
   mutate(date = as.Date(date, format = "%m-%d-%y"),
          # month = match(months(date), month.name),
          incident.rate = incident.rate/1000,
          # based on documentation (100k population)
          testing.rate = testing.rate/1000) %>%
     select(-c(people.hospitalized, hospitalization.rate, recovered.cases))
-  
+
 
 
 for (date in dates){
   reports.raw <- read_csv(paste("./datasets/csse_covid_19_daily_reports_us/", date, ".csv", sep = ""))
   rpt <- reports.raw %>%
-    select(-c(Country_Region, Last_Update, Lat, Long_, Confirmed, Deaths, FIPS, UID, ISO3)) %>% 
+    select(-c(Country_Region, Last_Update, Lat, Long_, Confirmed, Deaths, FIPS, UID, ISO3)) %>%
     rename(state = Province_State,
            recovered.cases = Recovered,
            active.cases = Active,
@@ -270,21 +270,21 @@ for (date in dates){
            people.hospitalized = People_Hospitalized,
            mortality.rate = Mortality_Rate,
            testing.rate = Testing_Rate,
-           hospitalization.rate = Hospitalization_Rate) %>% 
-    filter(state %in% c(state.name, "District of Columbia")) %>% 
+           hospitalization.rate = Hospitalization_Rate) %>%
+    filter(state %in% c(state.name, "District of Columbia")) %>%
     mutate(date = as.Date(date, format = "%m-%d-%y"),
            # month = match(months(date), month.name),
            incident.rate = incident.rate/1000,
            testing.rate = testing.rate/1000) %>%
     select(-c(people.hospitalized, hospitalization.rate, recovered.cases))
-  ### North Dekota has > 100% testing rate 
+  ### North Dekota has > 100% testing rate
   report <- rbind(report, rpt)
 }
 
 reports <- report[c(1, 6, 7, 2, 3, 4, 5)][order(report$state, report$date),]
 
-covid.time.series <- covid %>% 
-  full_join(reports, by = c("state","date")) %>% 
+covid.time.series <- covid %>%
+  full_join(reports, by = c("state","date")) %>%
   mutate(active.rates = 100*(active.cases / population)) # added normalized active rates
 
 # covid.time.series <- reports
@@ -294,7 +294,7 @@ covid.time.series <- covid %>%
 ```
 
 
-## Cleaning mobility data 
+## Cleaning mobility data
 
 Importing Google mobility dataset
 ```{r}
@@ -315,31 +315,31 @@ month <- as.numeric(format(US_State_2020_mobility_without_county$date, "%m"))
 StateMonthMobility <- US_State_2020_mobility_without_county %>% mutate(month = month)
 
 
-StateMonthmobility <- StateMonthMobility %>% filter(retail_and_recreation_percent_change_from_baseline != "NA")%>% 
+StateMonthmobility <- StateMonthMobility %>% filter(retail_and_recreation_percent_change_from_baseline != "NA")%>%
   filter(grocery_and_pharmacy_percent_change_from_baseline != "NA")%>%
   filter(parks_percent_change_from_baseline != "NA")%>%
-  filter(transit_stations_percent_change_from_baseline!= "NA")%>% 
-  filter(workplaces_percent_change_from_baseline!= "NA")%>% 
+  filter(transit_stations_percent_change_from_baseline!= "NA")%>%
+  filter(workplaces_percent_change_from_baseline!= "NA")%>%
   filter(residential_percent_change_from_baseline!= "NA")
 
-StateMonthMobility2 <- StateMonthMobility %>% 
-  group_by(month,sub_region_1) %>% 
-  summarise(mean_retial_and_recreation_percent_change = 
+StateMonthMobility2 <- StateMonthMobility %>%
+  group_by(month,sub_region_1) %>%
+  summarise(mean_retial_and_recreation_percent_change =
               mean(retail_and_recreation_percent_change_from_baseline),
-            mean_grocery_and_pharmacy_percent_change = 
-              mean(grocery_and_pharmacy_percent_change_from_baseline), 
+            mean_grocery_and_pharmacy_percent_change =
+              mean(grocery_and_pharmacy_percent_change_from_baseline),
             mean_parks_percent_change = mean(parks_percent_change_from_baseline),
-            mean_transit_stations_percent_change = 
+            mean_transit_stations_percent_change =
               mean(transit_stations_percent_change_from_baseline),
-            mean_workplaces_percent_change = 
+            mean_workplaces_percent_change =
               mean(workplaces_percent_change_from_baseline),
-            mean_residential_percent_change= 
+            mean_residential_percent_change=
               mean(residential_percent_change_from_baseline))
 ```
 
-# Visualization codes 
+# Visualization codes
 
-## Geographic categorization 
+## Geographic categorization
 ```{r}
 
 Midwest.states <- c("North Dakota","South Dakota","Nebraska","Kansas","Indiana","Missouri","Iowa","Ohio","Wisconsin","Michigan","Minnesota","Illinois")
@@ -361,60 +361,60 @@ covid.state.west <- filter(covid.time.series, state %in% West.states)
 covid death graphs
 ```{r}
 covid.death.midwest <- covid.state.midwest %>%
-  ggplot(aes(x = date, y = cumulative.death.cases, color = state)) + 
+  ggplot(aes(x = date, y = cumulative.death.cases, color = state)) +
   geom_line() +
   scale_color_hue(name='Midwest States')+
   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
   scale_y_continuous(expand=c(0,1), breaks=seq(0,40000,5000), limits=c(0,40000),
                      labels=as.character(seq(0,40000,5000)))+
   ylab("Cumulative Death Cases") +
-  xlab("Date") + 
-  ggtitle("Cumulative Death Cases in Midwest US") + 
+  xlab("Date") +
+  ggtitle("Cumulative Death Cases in Midwest US") +
   theme_minimal() +
   theme(axis.title = element_text(size=12), # change axis style
         legend.title = element_text(size=12), # change legend style
         plot.title = element_text(size=14)) # change title style
-  
+
 covid.death.northeast <- covid.state.northeast %>%
-  ggplot(aes(x = date, y = cumulative.death.cases, color = state)) + 
+  ggplot(aes(x = date, y = cumulative.death.cases, color = state)) +
   geom_line() +
   scale_color_hue(name='Northeast States')+
   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
   scale_y_continuous(expand=c(0,1), breaks=seq(0,40000,5000), limits=c(0,40000),
                      labels=as.character(seq(0,40000,5000)))+
   ylab("Cumulative Death Cases") +
-  xlab("Date") + 
-  ggtitle("Cumulative Death Cases in Northeast US") + 
+  xlab("Date") +
+  ggtitle("Cumulative Death Cases in Northeast US") +
   theme_minimal() +
   theme(axis.title = element_text(size=12), # change axis style
         legend.title = element_text(size=12), # change legend style
         plot.title = element_text(size=14)) # change title style
 
 covid.death.south<- covid.state.south %>%
-  ggplot(aes(x = date, y = cumulative.death.cases, color = state)) + 
+  ggplot(aes(x = date, y = cumulative.death.cases, color = state)) +
   geom_line() +
   scale_color_hue(name='South States')+
   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
   scale_y_continuous(expand=c(0,1), breaks=seq(0,40000,5000), limits=c(0,40000),
                      labels=as.character(seq(0,40000,5000)))+
   ylab("Cumulative Death Cases") +
-  xlab("Date") + 
-  ggtitle("Cumulative Death Cases in South US") + 
+  xlab("Date") +
+  ggtitle("Cumulative Death Cases in South US") +
   theme_minimal() +
   theme(axis.title = element_text(size=12), # change axis style
         legend.title = element_text(size=12), # change legend style
         plot.title = element_text(size=14)) # change title style
 
 covid.death.west <- covid.state.west %>%
-  ggplot(aes(x = date, y = cumulative.death.cases, color = state)) + 
+  ggplot(aes(x = date, y = cumulative.death.cases, color = state)) +
   geom_line() +
   scale_color_hue(name='West States')+
   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
   scale_y_continuous(expand=c(0,1), breaks=seq(0,40000,5000), limits=c(0,40000),
                      labels=as.character(seq(0,40000,5000)))+
   ylab("Cumulative Death Cases") +
-  xlab("Date") + 
-  ggtitle("Cumulative Death Cases in West US") + 
+  xlab("Date") +
+  ggtitle("Cumulative Death Cases in West US") +
   theme_minimal() +
   theme(axis.title = element_text(size=12), # change axis style
         legend.title = element_text(size=12), # change legend style
@@ -424,188 +424,188 @@ covid.death.west <- covid.state.west %>%
 covid confirmed cases graphs
 ```{r}
 covid.confirm.midwest <- covid.state.midwest %>%
-  ggplot(aes(x = date, y = cumulative.confirmed.cases, color = state)) + 
+  ggplot(aes(x = date, y = cumulative.confirmed.cases, color = state)) +
   geom_line() +
   scale_color_hue(name='Midwest States')+
   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
   ylim(0, 1000000)+
   ylab("Cumulative Confirmed Cases") +
-  xlab("Date") + 
-  ggtitle("Cumulative Confirmed Cases in Midwest US") + 
+  xlab("Date") +
+  ggtitle("Cumulative Confirmed Cases in Midwest US") +
   theme_minimal() +
   theme(axis.title = element_text(size=12), # change axis style
         legend.title = element_text(size=12), # change legend style
         plot.title = element_text(size=14)) # change title style
 
 covid.confirm.northeast <- covid.state.northeast %>%
-  ggplot(aes(x = date, y = cumulative.confirmed.cases, color = state)) + 
+  ggplot(aes(x = date, y = cumulative.confirmed.cases, color = state)) +
   geom_line() +
   scale_color_hue(name='Northeast States')+
   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
   ylim(0, 1000000)+
   ylab("Cumulative Confirmed Cases") +
-  xlab("Date") + 
-  ggtitle("Cumulative Confirmed Cases in Northeast US") + 
+  xlab("Date") +
+  ggtitle("Cumulative Confirmed Cases in Northeast US") +
   theme_minimal() +
   theme(axis.title = element_text(size=12), # change axis style
         legend.title = element_text(size=12), # change legend style
         plot.title = element_text(size=14)) # change title style
 
 covid.confirm.south <- covid.state.south %>%
-  ggplot(aes(x = date, y = cumulative.confirmed.cases, color = state)) + 
+  ggplot(aes(x = date, y = cumulative.confirmed.cases, color = state)) +
   geom_line() +
   scale_color_hue(name='South States')+
   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
   ylim(0, 1000000)+
   ylab("Cumulative Confirmed Cases") +
-  xlab("Date") + 
-  ggtitle("Cumulative Confirmed Cases in South US") + 
+  xlab("Date") +
+  ggtitle("Cumulative Confirmed Cases in South US") +
   theme_minimal() +
   theme(axis.title = element_text(size=12), # change axis style
         legend.title = element_text(size=12), # change legend style
         plot.title = element_text(size=14)) # change title style
 
 covid.confirm.west <- covid.state.west %>%
-  ggplot(aes(x = date, y = cumulative.confirmed.cases, color = state)) + 
+  ggplot(aes(x = date, y = cumulative.confirmed.cases, color = state)) +
   geom_line() +
   scale_color_hue(name='West States')+
   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
   ylim(0, 1000000)+
   ylab("Cumulative Confirmed Cases") +
-  xlab("Date") + 
-  ggtitle("Cumulative Confirmed Cases in West US") + 
+  xlab("Date") +
+  ggtitle("Cumulative Confirmed Cases in West US") +
   theme_minimal() +
   theme(axis.title = element_text(size=12), # change axis style
         legend.title = element_text(size=12), # change legend style
         plot.title = element_text(size=14)) # change title style
 ```
 
-covid testing rate graphs 
+covid testing rate graphs
 ```{r}
 # Only starting from April 12th because we only have data dtarting from then
 covid.test.rate.midwest <- covid.state.midwest %>%
-  filter(date > as.Date("2020-04-11")) %>% 
-  ggplot(aes(x = date, y = testing.rate, color = state)) + 
+  filter(date > as.Date("2020-04-11")) %>%
+  ggplot(aes(x = date, y = testing.rate, color = state)) +
   geom_line() +
   scale_color_hue(name='Midwest States')+
   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
   scale_y_continuous(expand=c(0,1), breaks=seq(0,120,20), limits=c(0,105),
                      labels=as.character(seq(0,120,20)))+
   ylab("Testing Rate") +
-  xlab("Date") + 
-  ggtitle("Testing Rate in Midwest US") + 
+  xlab("Date") +
+  ggtitle("Testing Rate in Midwest US") +
   theme_minimal() +
   theme(axis.title = element_text(size=12), # change axis style
         legend.title = element_text(size=12), # change legend style
         plot.title = element_text(size=14)) # change title style
 
 covid.test.rate.northeast <- covid.state.northeast %>%
-  filter(date > as.Date("2020-04-11")) %>% 
-  ggplot(aes(x = date, y = testing.rate, color = state)) + 
+  filter(date > as.Date("2020-04-11")) %>%
+  ggplot(aes(x = date, y = testing.rate, color = state)) +
   geom_line() +
   scale_color_hue(name='Northeast States')+
   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
   scale_y_continuous(expand=c(0,1), breaks=seq(0,120,20), limits=c(0,105),
                      labels=as.character(seq(0,120,20)))+
   ylab("Testing Rate") +
-  xlab("Date") + 
-  ggtitle("Testing Rate in Northeast US") + 
+  xlab("Date") +
+  ggtitle("Testing Rate in Northeast US") +
   theme_minimal() +
   theme(axis.title = element_text(size=12), # change axis style
         legend.title = element_text(size=12), # change legend style
         plot.title = element_text(size=14)) # change title style
 
 covid.test.rate.south <- covid.state.south %>%
-  filter(date > as.Date("2020-04-11")) %>% 
-  ggplot(aes(x = date, y = testing.rate, color = state)) + 
+  filter(date > as.Date("2020-04-11")) %>%
+  ggplot(aes(x = date, y = testing.rate, color = state)) +
   geom_line() +
   scale_color_hue(name='South States')+
   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
   scale_y_continuous(expand=c(0,1), breaks=seq(0,120,20), limits=c(0,105),
                      labels=as.character(seq(0,120,20)))+
   ylab("Testing Rate") +
-  xlab("Date") + 
-  ggtitle("Testing Rate in South US") + 
+  xlab("Date") +
+  ggtitle("Testing Rate in South US") +
   theme_minimal() +
   theme(axis.title = element_text(size=12), # change axis style
         legend.title = element_text(size=12), # change legend style
         plot.title = element_text(size=14)) # change title style
 
 covid.test.rate.west <- covid.state.west %>%
-  filter(date > as.Date("2020-04-11")) %>% 
-  ggplot(aes(x = date, y = testing.rate, color = state)) + 
+  filter(date > as.Date("2020-04-11")) %>%
+  ggplot(aes(x = date, y = testing.rate, color = state)) +
   geom_line() +
   scale_color_hue(name='West States')+
   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
   scale_y_continuous(expand=c(0,1), breaks=seq(0,120,20), limits=c(0,105),
                      labels=as.character(seq(0,120,20)))+
   ylab("Testing Rate") +
-  xlab("Date") + 
-  ggtitle("Testing Rate in West US") + 
+  xlab("Date") +
+  ggtitle("Testing Rate in West US") +
   theme_minimal() +
   theme(axis.title = element_text(size=12), # change axis style
         legend.title = element_text(size=12), # change legend style
         plot.title = element_text(size=14)) # change title style
 ```
 
-covid testing postive rate graphs 
+covid testing postive rate graphs
 ```{r}
 # Only starting from April 12th because we only have data starting from then
 covid.incident.rate.midwest <- covid.state.midwest %>%
-  filter(date > as.Date("2020-04-11")) %>% 
-  ggplot(aes(x = date, y = incident.rate, color = state)) + 
+  filter(date > as.Date("2020-04-11")) %>%
+  ggplot(aes(x = date, y = incident.rate, color = state)) +
   geom_line() +
   scale_color_hue(name='Midwest States')+
   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
   ylim(0, 5)+
   ylab("Incident Rate") +
-  xlab("Date") + 
-  ggtitle("Incident Rate in Midwest US") + 
+  xlab("Date") +
+  ggtitle("Incident Rate in Midwest US") +
   theme_minimal() +
   theme(axis.title = element_text(size=12), # change axis style
         legend.title = element_text(size=12), # change legend style
         plot.title = element_text(size=14)) # change title style
 
 covid.incident.rate.northeast <- covid.state.northeast %>%
-  filter(date > as.Date("2020-04-11")) %>% 
-  ggplot(aes(x = date, y = incident.rate, color = state)) + 
+  filter(date > as.Date("2020-04-11")) %>%
+  ggplot(aes(x = date, y = incident.rate, color = state)) +
   geom_line() +
   scale_color_hue(name='Northeast States')+
   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
   ylim(0, 5)+
   ylab("Incident Rate") +
-  xlab("Date") + 
-  ggtitle("Incident Rate in Northeast US") + 
+  xlab("Date") +
+  ggtitle("Incident Rate in Northeast US") +
   theme_minimal() +
   theme(axis.title = element_text(size=12), # change axis style
         legend.title = element_text(size=12), # change legend style
         plot.title = element_text(size=14)) # change title style
 
 covid.incident.rate.south <- covid.state.south %>%
-  filter(date > as.Date("2020-04-11")) %>% 
-  ggplot(aes(x = date, y = incident.rate, color = state)) + 
+  filter(date > as.Date("2020-04-11")) %>%
+  ggplot(aes(x = date, y = incident.rate, color = state)) +
   geom_line() +
   scale_color_hue(name='South States')+
   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
   ylim(0, 5)+
   ylab("Incident Rate") +
-  xlab("Date") + 
-  ggtitle("Incident Rate in South US") + 
+  xlab("Date") +
+  ggtitle("Incident Rate in South US") +
   theme_minimal() +
   theme(axis.title = element_text(size=12), # change axis style
         legend.title = element_text(size=12), # change legend style
         plot.title = element_text(size=14)) # change title style
 
 covid.incident.rate.west <- covid.state.west %>%
-  filter(date > as.Date("2020-04-11")) %>% 
-  ggplot(aes(x = date, y = incident.rate, color = state)) + 
+  filter(date > as.Date("2020-04-11")) %>%
+  ggplot(aes(x = date, y = incident.rate, color = state)) +
   geom_line() +
   scale_color_hue(name='West States')+
   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
   ylim(0, 5)+
   ylab("Incident Rate") +
-  xlab("Date") + 
-  ggtitle("Incident Rate in West US") + 
+  xlab("Date") +
+  ggtitle("Incident Rate in West US") +
   theme_minimal() +
   theme(axis.title = element_text(size=12), # change axis style
         legend.title = element_text(size=12), # change legend style
@@ -623,17 +623,17 @@ StateMonthMobility_West <- filter(StateMonthMobility2,sub_region_1 %in% West.sta
 
 Plotting for Mean Percent Change of Retail+Recreation
 ```{r}
-mobility.r.midwest <- StateMonthMobility_Midwest %>% 
-  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>% 
-  ggplot(aes(y=mean_retial_and_recreation_percent_change, 
+mobility.r.midwest <- StateMonthMobility_Midwest %>%
+  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>%
+  ggplot(aes(y=mean_retial_and_recreation_percent_change,
              x=month, color=sub_region_1)) +
-  geom_point() + 
-  geom_line() + 
+  geom_point() +
+  geom_line() +
   geom_path()+
   ggtitle("Mean Percent Change of Retail and Recreation in Midwest US")+
-  ylab("Mean Percent Change of Retail and Recreation") + 
-  xlab("Month") + 
-  labs(color="Midwest States") + 
+  ylab("Mean Percent Change of Retail and Recreation") +
+  xlab("Month") +
+  labs(color="Midwest States") +
   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
   scale_y_continuous(expand=c(0,1), breaks=seq(-60,60,10), limits=c(-65,20),
                      labels=as.character(seq(-60,60,10)))+
@@ -642,17 +642,17 @@ mobility.r.midwest <- StateMonthMobility_Midwest %>%
         legend.title = element_text(size=12), # change legend style
         plot.title = element_text(size=14)) # change title style
 
-mobility.r.northeast <- StateMonthMobility_Northeast %>% 
-  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>% 
-  ggplot(aes(y=mean_retial_and_recreation_percent_change, 
+mobility.r.northeast <- StateMonthMobility_Northeast %>%
+  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>%
+  ggplot(aes(y=mean_retial_and_recreation_percent_change,
              x=month, color=sub_region_1)) +
-  geom_point() + 
-  geom_line() + 
+  geom_point() +
+  geom_line() +
   geom_path()+
   ggtitle("Mean Percent Change of Retail and Recreation in Northeast US")+
-  ylab("Mean Percent Change of Retail and Recreation") + 
-  xlab("Month") + 
-  labs(color="Northeast States") + 
+  ylab("Mean Percent Change of Retail and Recreation") +
+  xlab("Month") +
+  labs(color="Northeast States") +
   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
   scale_y_continuous(expand=c(0,1), breaks=seq(-60,60,10), limits=c(-65,20),
                      labels=as.character(seq(-60,60,10)))+
@@ -661,17 +661,17 @@ mobility.r.northeast <- StateMonthMobility_Northeast %>%
         legend.title = element_text(size=12), # change legend style
         plot.title = element_text(size=14)) # change title style
 
-mobility.r.south <- StateMonthMobility_South %>% 
-  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>% 
-  ggplot(aes(y=mean_retial_and_recreation_percent_change, 
+mobility.r.south <- StateMonthMobility_South %>%
+  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>%
+  ggplot(aes(y=mean_retial_and_recreation_percent_change,
              x=month, color=sub_region_1)) +
-  geom_point() + 
-  geom_line() + 
+  geom_point() +
+  geom_line() +
   geom_path()+
   ggtitle("Mean Percent Change of Retail and Recreation in South US")+
-  ylab("Mean Percent Change of Retail and Recreation") + 
-  xlab("Month") + 
-  labs(color="South States") + 
+  ylab("Mean Percent Change of Retail and Recreation") +
+  xlab("Month") +
+  labs(color="South States") +
   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
   scale_y_continuous(expand=c(0,1), breaks=seq(-60,60,10), limits=c(-65,20),
                      labels=as.character(seq(-60,60,10)))+
@@ -681,17 +681,17 @@ mobility.r.south <- StateMonthMobility_South %>%
         plot.title = element_text(size=14)) # change title style
 
 
-mobility.r.west <- StateMonthMobility_West %>% 
-  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>% 
-  ggplot(aes(y=mean_retial_and_recreation_percent_change, 
+mobility.r.west <- StateMonthMobility_West %>%
+  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>%
+  ggplot(aes(y=mean_retial_and_recreation_percent_change,
              x=month, color=sub_region_1)) +
-  geom_point() + 
-  geom_line() + 
+  geom_point() +
+  geom_line() +
   geom_path()+
   ggtitle("Mean Percent Change of Retail and Recreation in West US")+
-  ylab("Mean Percent Change of Retail and Recreation") + 
-  xlab("Month") + 
-  labs(color="West States") + 
+  ylab("Mean Percent Change of Retail and Recreation") +
+  xlab("Month") +
+  labs(color="West States") +
   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
   scale_y_continuous(expand=c(0,1), breaks=seq(-60,60,10), limits=c(-65,20),
                      labels=as.character(seq(-60,60,10)))+
@@ -706,17 +706,17 @@ mobility.r.west <- StateMonthMobility_West %>%
 
 Plotting for Mean Percent Change of Grocery+Pharmacy
 ```{r}
-mobility.gp.midwest <- StateMonthMobility_Midwest %>% 
-  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>% 
-  ggplot(aes(y=mean_grocery_and_pharmacy_percent_change, 
+mobility.gp.midwest <- StateMonthMobility_Midwest %>%
+  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>%
+  ggplot(aes(y=mean_grocery_and_pharmacy_percent_change,
              x=month, color=sub_region_1)) +
-  geom_point() + 
-  geom_line() + 
+  geom_point() +
+  geom_line() +
   geom_path()+
   ggtitle("Mean Percent Change of Grocery and Pharmacy in Midwest US")+
-  ylab("Mean Percent Change of Grocery and Pharmacy") + 
-  xlab("Month") + 
-  labs(color="Midwest States") + 
+  ylab("Mean Percent Change of Grocery and Pharmacy") +
+  xlab("Month") +
+  labs(color="Midwest States") +
   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
   scale_y_continuous(expand=c(0,1), breaks=seq(-60,60,10), limits=c(-35,35),
                      labels=as.character(seq(-60,60,10)))+
@@ -725,17 +725,17 @@ mobility.gp.midwest <- StateMonthMobility_Midwest %>%
         legend.title = element_text(size=12), # change legend style
         plot.title = element_text(size=14)) # change title style
 
-mobility.gp.northeast <- StateMonthMobility_Northeast %>% 
-  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>% 
-  ggplot(aes(y=mean_grocery_and_pharmacy_percent_change, 
+mobility.gp.northeast <- StateMonthMobility_Northeast %>%
+  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>%
+  ggplot(aes(y=mean_grocery_and_pharmacy_percent_change,
              x=month, color=sub_region_1)) +
-  geom_point() + 
-  geom_line() + 
+  geom_point() +
+  geom_line() +
   geom_path()+
   ggtitle("Mean Percent Change of Grocery and Pharmacy in Northeast US")+
-  ylab("Mean Percent Change of Grocery and Pharmacy") + 
-  xlab("Month") + 
-  labs(color="Northeast States") + 
+  ylab("Mean Percent Change of Grocery and Pharmacy") +
+  xlab("Month") +
+  labs(color="Northeast States") +
   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
   scale_y_continuous(expand=c(0,1), breaks=seq(-60,60,10), limits=c(-35,35),
                      labels=as.character(seq(-60,60,10)))+
@@ -744,17 +744,17 @@ mobility.gp.northeast <- StateMonthMobility_Northeast %>%
         legend.title = element_text(size=12), # change legend style
         plot.title = element_text(size=14)) # change title style
 
-mobility.gp.south <- StateMonthMobility_South %>% 
-  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>% 
-  ggplot(aes(y=mean_grocery_and_pharmacy_percent_change, 
+mobility.gp.south <- StateMonthMobility_South %>%
+  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>%
+  ggplot(aes(y=mean_grocery_and_pharmacy_percent_change,
              x=month, color=sub_region_1)) +
-  geom_point() + 
-  geom_line() + 
+  geom_point() +
+  geom_line() +
   geom_path()+
   ggtitle("Mean Percent Change of Grocery and Pharmacy in South US")+
-  ylab("Mean Percent Change of Grocery and Pharmacy") + 
-  xlab("Month") + 
-  labs(color="South States") + 
+  ylab("Mean Percent Change of Grocery and Pharmacy") +
+  xlab("Month") +
+  labs(color="South States") +
   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
   scale_y_continuous(expand=c(0,1), breaks=seq(-60,60,10), limits=c(-35,35),
                      labels=as.character(seq(-60,60,10)))+
@@ -763,17 +763,17 @@ mobility.gp.south <- StateMonthMobility_South %>%
         legend.title = element_text(size=12), # change legend style
         plot.title = element_text(size=14)) # change title style
 
-mobility.gp.west <- StateMonthMobility_West %>% 
-  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>% 
-  ggplot(aes(y=mean_grocery_and_pharmacy_percent_change, 
+mobility.gp.west <- StateMonthMobility_West %>%
+  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>%
+  ggplot(aes(y=mean_grocery_and_pharmacy_percent_change,
              x=month, color=sub_region_1)) +
-  geom_point() + 
-  geom_line() + 
+  geom_point() +
+  geom_line() +
   geom_path()+
   ggtitle("Mean Percent Change of Grocery and Pharmacy in West US")+
-  ylab("Mean Percent Change of Grocery and Pharmacy") + 
-  xlab("Month") + 
-  labs(color="West States") + 
+  ylab("Mean Percent Change of Grocery and Pharmacy") +
+  xlab("Month") +
+  labs(color="West States") +
   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
   scale_y_continuous(expand=c(0,1), breaks=seq(-60,60,10), limits=c(-35,35),
                      labels=as.character(seq(-60,60,10)))+
@@ -789,17 +789,17 @@ mobility.gp.west <- StateMonthMobility_West %>%
 
 Plotting for Mean Percent Change of Parks
 ```{r}
-mobility.parks.midwest <- StateMonthMobility_Midwest %>% 
-  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>% 
-  ggplot(aes(y=mean_parks_percent_change, 
+mobility.parks.midwest <- StateMonthMobility_Midwest %>%
+  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>%
+  ggplot(aes(y=mean_parks_percent_change,
              x=month, color=sub_region_1)) +
-  geom_point() + 
-  geom_line() + 
+  geom_point() +
+  geom_line() +
   geom_path()+
     ggtitle("Mean Percent Change of Parks in Midwest US")+
-  ylab("Mean Percent Change of Parks") + 
-  xlab("Month") + 
-  labs(color="Midwest States") + 
+  ylab("Mean Percent Change of Parks") +
+  xlab("Month") +
+  labs(color="Midwest States") +
   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
   scale_y_continuous(expand=c(0,1), breaks=seq(-100,400,50), limits=c(-75,400),
                      labels=as.character(seq(-100,400,50)))+
@@ -808,17 +808,17 @@ mobility.parks.midwest <- StateMonthMobility_Midwest %>%
         legend.title = element_text(size=12), # change legend style
         plot.title = element_text(size=14)) # change title style
 
-mobility.parks.northeast <- StateMonthMobility_Northeast %>% 
-  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>% 
-  ggplot(aes(y=mean_parks_percent_change, 
+mobility.parks.northeast <- StateMonthMobility_Northeast %>%
+  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>%
+  ggplot(aes(y=mean_parks_percent_change,
              x=month, color=sub_region_1)) +
-  geom_point() + 
-  geom_line() + 
+  geom_point() +
+  geom_line() +
   geom_path()+
     ggtitle("Mean Percent Change of Parks in Northeast US")+
-  ylab("Mean Percent Change of Parks") + 
-  xlab("Month") + 
-  labs(color="Northeast States") + 
+  ylab("Mean Percent Change of Parks") +
+  xlab("Month") +
+  labs(color="Northeast States") +
   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
   scale_y_continuous(expand=c(0,1), breaks=seq(-100,400,50), limits=c(-75,400),
                      labels=as.character(seq(-100,400,50)))+
@@ -827,17 +827,17 @@ mobility.parks.northeast <- StateMonthMobility_Northeast %>%
         legend.title = element_text(size=12), # change legend style
         plot.title = element_text(size=14)) # change title style
 
-mobility.parks.south <- StateMonthMobility_South %>% 
-  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>% 
-  ggplot(aes(y=mean_parks_percent_change, 
+mobility.parks.south <- StateMonthMobility_South %>%
+  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>%
+  ggplot(aes(y=mean_parks_percent_change,
              x=month, color=sub_region_1)) +
-  geom_point() + 
-  geom_line() + 
+  geom_point() +
+  geom_line() +
   geom_path()+
     ggtitle("Mean Percent Change of Parks in South US")+
-  ylab("Mean Percent Change of Parks") + 
-  xlab("Month") + 
-  labs(color="South States") + 
+  ylab("Mean Percent Change of Parks") +
+  xlab("Month") +
+  labs(color="South States") +
   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
   scale_y_continuous(expand=c(0,1), breaks=seq(-100,400,50), limits=c(-75,400),
                      labels=as.character(seq(-100,400,50)))+
@@ -846,17 +846,17 @@ mobility.parks.south <- StateMonthMobility_South %>%
         legend.title = element_text(size=12), # change legend style
         plot.title = element_text(size=14)) # change title style
 
-mobility.parks.west <- StateMonthMobility_West %>% 
-  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>% 
-  ggplot(aes(y=mean_parks_percent_change, 
+mobility.parks.west <- StateMonthMobility_West %>%
+  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>%
+  ggplot(aes(y=mean_parks_percent_change,
              x=month, color=sub_region_1)) +
-  geom_point() + 
-  geom_line() + 
+  geom_point() +
+  geom_line() +
   geom_path()+
     ggtitle("Mean Percent Change of Parks in West US")+
-  ylab("Mean Percent Change of Parks") + 
-  xlab("Month") + 
-  labs(color="West States") + 
+  ylab("Mean Percent Change of Parks") +
+  xlab("Month") +
+  labs(color="West States") +
   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
   scale_y_continuous(expand=c(0,1), breaks=seq(-100,400,50), limits=c(-75,400),
                      labels=as.character(seq(-100,400,50)))+
@@ -868,19 +868,19 @@ mobility.parks.west <- StateMonthMobility_West %>%
 # grid.arrange(r1,r2,r3,r4,nrow=2,top="Relationship between Mean Percent Change of Parks and Month by States")
 ```
 
-Plotting for Mean Percent Change of Transit Stations 
+Plotting for Mean Percent Change of Transit Stations
 ```{r}
-mobility.transit.midwest <- StateMonthMobility_Midwest %>% 
-  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>% 
-  ggplot(aes(y=mean_transit_stations_percent_change, 
+mobility.transit.midwest <- StateMonthMobility_Midwest %>%
+  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>%
+  ggplot(aes(y=mean_transit_stations_percent_change,
              x=month, color=sub_region_1)) +
-  geom_point() + 
-  geom_line() + 
+  geom_point() +
+  geom_line() +
   geom_path()+
   ggtitle("Mean Percent Change of Transit Stations in Midwest US")+
-  ylab("Mean Percent Change of Transit Stations") + 
-  xlab("Month") + 
-  labs(color="Midwest States") + 
+  ylab("Mean Percent Change of Transit Stations") +
+  xlab("Month") +
+  labs(color="Midwest States") +
   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
   scale_y_continuous(expand=c(0,1), breaks=seq(-100,100,10), limits=c(-70,45),
                      labels=as.character(seq(-100,100,10)))+
@@ -889,17 +889,17 @@ mobility.transit.midwest <- StateMonthMobility_Midwest %>%
         legend.title = element_text(size=12), # change legend style
         plot.title = element_text(size=14)) # change title style
 
-mobility.transit.northeast <- StateMonthMobility_Northeast %>% 
-  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>% 
-  ggplot(aes(y=mean_transit_stations_percent_change, 
+mobility.transit.northeast <- StateMonthMobility_Northeast %>%
+  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>%
+  ggplot(aes(y=mean_transit_stations_percent_change,
              x=month, color=sub_region_1)) +
-  geom_point() + 
-  geom_line() + 
+  geom_point() +
+  geom_line() +
   geom_path()+
   ggtitle("Mean Percent Change of Transit Stations in Northeast US")+
-  ylab("Mean Percent Change of Transit Stations") + 
-  xlab("Month") + 
-  labs(color="Northeast States") + 
+  ylab("Mean Percent Change of Transit Stations") +
+  xlab("Month") +
+  labs(color="Northeast States") +
   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
   scale_y_continuous(expand=c(0,1), breaks=seq(-100,100,10), limits=c(-70,45),
                      labels=as.character(seq(-100,100,10)))+
@@ -908,17 +908,17 @@ mobility.transit.northeast <- StateMonthMobility_Northeast %>%
         legend.title = element_text(size=12), # change legend style
         plot.title = element_text(size=14)) # change title style
 
-mobility.transit.south <- StateMonthMobility_South %>% 
-  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>% 
-  ggplot(aes(y=mean_transit_stations_percent_change, 
+mobility.transit.south <- StateMonthMobility_South %>%
+  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>%
+  ggplot(aes(y=mean_transit_stations_percent_change,
              x=month, color=sub_region_1)) +
-  geom_point() + 
-  geom_line() + 
+  geom_point() +
+  geom_line() +
   geom_path()+
   ggtitle("Mean Percent Change of Transit Stations in South US")+
-  ylab("Mean Percent Change of Transit Stations") + 
-  xlab("Month") + 
-  labs(color="South States") + 
+  ylab("Mean Percent Change of Transit Stations") +
+  xlab("Month") +
+  labs(color="South States") +
   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
   scale_y_continuous(expand=c(0,1), breaks=seq(-100,100,10), limits=c(-70,45),
                      labels=as.character(seq(-100,100,10)))+
@@ -927,17 +927,17 @@ mobility.transit.south <- StateMonthMobility_South %>%
         legend.title = element_text(size=12), # change legend style
         plot.title = element_text(size=14)) # change title style
 
-mobility.transit.west <- StateMonthMobility_West %>% 
-  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>% 
-  ggplot(aes(y=mean_transit_stations_percent_change, 
+mobility.transit.west <- StateMonthMobility_West %>%
+  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>%
+  ggplot(aes(y=mean_transit_stations_percent_change,
              x=month, color=sub_region_1)) +
-  geom_point() + 
-  geom_line() + 
+  geom_point() +
+  geom_line() +
   geom_path()+
   ggtitle("Mean Percent Change of Transit Stations in West US")+
-  ylab("Mean Percent Change of Transit Stations") + 
-  xlab("Month") + 
-  labs(color="West States") + 
+  ylab("Mean Percent Change of Transit Stations") +
+  xlab("Month") +
+  labs(color="West States") +
   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
   scale_y_continuous(expand=c(0,1), breaks=seq(-100,100,10), limits=c(-70,45),
                      labels=as.character(seq(-100,100,10)))+
@@ -952,17 +952,17 @@ mobility.transit.west <- StateMonthMobility_West %>%
 
 Plotting for Mean Percent Change of Workplaces
 ```{r}
-mobility.work.midwest <- StateMonthMobility_Midwest %>% 
-  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>% 
-  ggplot(aes(y=mean_workplaces_percent_change, 
+mobility.work.midwest <- StateMonthMobility_Midwest %>%
+  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>%
+  ggplot(aes(y=mean_workplaces_percent_change,
              x=month, color=sub_region_1)) +
-  geom_point() + 
-  geom_line() + 
+  geom_point() +
+  geom_line() +
   geom_path()+
   ggtitle("Mean Percent Change of Workplaces in Midwest US")+
-  ylab("Mean Percent Change of Workplaces") + 
-  xlab("Month") + 
-  labs(color="Midwest States") + 
+  ylab("Mean Percent Change of Workplaces") +
+  xlab("Month") +
+  labs(color="Midwest States") +
   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
   scale_y_continuous(expand=c(0,1), breaks=seq(-60,60,10), limits=c(-65,10),
                      labels=as.character(seq(-60,60,10)))+
@@ -971,17 +971,17 @@ mobility.work.midwest <- StateMonthMobility_Midwest %>%
         legend.title = element_text(size=12), # change legend style
         plot.title = element_text(size=14)) # change title style
 
-mobility.work.northeast <- StateMonthMobility_Northeast %>% 
-  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>% 
-  ggplot(aes(y=mean_workplaces_percent_change, 
+mobility.work.northeast <- StateMonthMobility_Northeast %>%
+  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>%
+  ggplot(aes(y=mean_workplaces_percent_change,
              x=month, color=sub_region_1)) +
-  geom_point() + 
-  geom_line() + 
+  geom_point() +
+  geom_line() +
   geom_path()+
   ggtitle("Mean Percent Change of Workplaces in Northeast US")+
-  ylab("Mean Percent Change of Workplaces") + 
-  xlab("Month") + 
-  labs(color="Northeast States") + 
+  ylab("Mean Percent Change of Workplaces") +
+  xlab("Month") +
+  labs(color="Northeast States") +
   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
   scale_y_continuous(expand=c(0,1), breaks=seq(-60,60,10), limits=c(-65,10),
                      labels=as.character(seq(-60,60,10)))+
@@ -990,17 +990,17 @@ mobility.work.northeast <- StateMonthMobility_Northeast %>%
         legend.title = element_text(size=12), # change legend style
         plot.title = element_text(size=14)) # change title style
 
-mobility.work.south <- StateMonthMobility_South %>% 
-  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>% 
-  ggplot(aes(y=mean_workplaces_percent_change, 
+mobility.work.south <- StateMonthMobility_South %>%
+  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>%
+  ggplot(aes(y=mean_workplaces_percent_change,
              x=month, color=sub_region_1)) +
-  geom_point() + 
-  geom_line() + 
+  geom_point() +
+  geom_line() +
   geom_path()+
   ggtitle("Mean Percent Change of Workplaces in South US")+
-  ylab("Mean Percent Change of Workplaces") + 
-  xlab("Month") + 
-  labs(color="South States") + 
+  ylab("Mean Percent Change of Workplaces") +
+  xlab("Month") +
+  labs(color="South States") +
   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
   scale_y_continuous(expand=c(0,1), breaks=seq(-60,60,10), limits=c(-65,10),
                      labels=as.character(seq(-60,60,10)))+
@@ -1009,17 +1009,17 @@ mobility.work.south <- StateMonthMobility_South %>%
         legend.title = element_text(size=12), # change legend style
         plot.title = element_text(size=14)) # change title style
 
-mobility.work.west <- StateMonthMobility_West %>% 
-  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>% 
-  ggplot(aes(y=mean_workplaces_percent_change, 
+mobility.work.west <- StateMonthMobility_West %>%
+  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>%
+  ggplot(aes(y=mean_workplaces_percent_change,
              x=month, color=sub_region_1)) +
-  geom_point() + 
-  geom_line() + 
+  geom_point() +
+  geom_line() +
   geom_path()+
   ggtitle("Mean Percent Change of Workplaces in West US")+
-  ylab("Mean Percent Change of Workplaces") + 
-  xlab("Month") + 
-  labs(color="West States") + 
+  ylab("Mean Percent Change of Workplaces") +
+  xlab("Month") +
+  labs(color="West States") +
   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
   scale_y_continuous(expand=c(0,1), breaks=seq(-60,60,10), limits=c(-65,10),
                      labels=as.character(seq(-60,60,10)))+
@@ -1034,17 +1034,17 @@ mobility.work.west <- StateMonthMobility_West %>%
 
 Plotting Mean Percent Change of Residential (%change of people staying at home)
 ```{r}
-mobility.res.midwest <- StateMonthMobility_Midwest %>% 
-  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>% 
-  ggplot(aes(y=mean_residential_percent_change, 
+mobility.res.midwest <- StateMonthMobility_Midwest %>%
+  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>%
+  ggplot(aes(y=mean_residential_percent_change,
              x=month, color=sub_region_1)) +
-  geom_point() + 
-  geom_line() + 
+  geom_point() +
+  geom_line() +
   geom_path()+
   ggtitle("Mean Percent Change of Residential in Midwest US")+
-  ylab("Mean Percent Change of Residential") + 
-  xlab("Month") + 
-  labs(color="Midwest States") + 
+  ylab("Mean Percent Change of Residential") +
+  xlab("Month") +
+  labs(color="Midwest States") +
   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
   scale_y_continuous(expand=c(0,1), breaks=seq(-60,60,5), limits=c(-5,20),
                      labels=as.character(seq(-60,60,5)))+
@@ -1053,17 +1053,17 @@ mobility.res.midwest <- StateMonthMobility_Midwest %>%
         legend.title = element_text(size=12), # change legend style
         plot.title = element_text(size=14)) # change title style
 
-mobility.res.northeast <- StateMonthMobility_Northeast %>% 
-  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>% 
-  ggplot(aes(y=mean_residential_percent_change, 
+mobility.res.northeast <- StateMonthMobility_Northeast %>%
+  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>%
+  ggplot(aes(y=mean_residential_percent_change,
              x=month, color=sub_region_1)) +
-  geom_point() + 
-  geom_line() + 
+  geom_point() +
+  geom_line() +
   geom_path()+
   ggtitle("Mean Percent Change of Residential in Northeast US")+
-  ylab("Mean Percent Change of Residential") + 
-  xlab("Month") + 
-  labs(color="Northeast States") + 
+  ylab("Mean Percent Change of Residential") +
+  xlab("Month") +
+  labs(color="Northeast States") +
   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
   scale_y_continuous(expand=c(0,1), breaks=seq(-60,60,5), limits=c(-5,20),
                      labels=as.character(seq(-60,60,5)))+
@@ -1072,17 +1072,17 @@ mobility.res.northeast <- StateMonthMobility_Northeast %>%
         legend.title = element_text(size=12), # change legend style
         plot.title = element_text(size=14)) # change title style
 
-mobility.res.south <- StateMonthMobility_South %>% 
-  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>% 
-  ggplot(aes(y=mean_residential_percent_change, 
+mobility.res.south <- StateMonthMobility_South %>%
+  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>%
+  ggplot(aes(y=mean_residential_percent_change,
              x=month, color=sub_region_1)) +
-  geom_point() + 
-  geom_line() + 
+  geom_point() +
+  geom_line() +
   geom_path()+
   ggtitle("Mean Percent Change of Residential in South US")+
-  ylab("Mean Percent Change of Residential") + 
-  xlab("Month") + 
-  labs(color="South States") + 
+  ylab("Mean Percent Change of Residential") +
+  xlab("Month") +
+  labs(color="South States") +
   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
   scale_y_continuous(expand=c(0,1), breaks=seq(-60,60,5), limits=c(-5,20),
                      labels=as.character(seq(-60,60,5)))+
@@ -1091,17 +1091,17 @@ mobility.res.south <- StateMonthMobility_South %>%
         legend.title = element_text(size=12), # change legend style
         plot.title = element_text(size=14)) # change title style
 
-mobility.res.west <- StateMonthMobility_West %>% 
-  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>% 
-  ggplot(aes(y=mean_residential_percent_change, 
+mobility.res.west <- StateMonthMobility_West %>%
+  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>%
+  ggplot(aes(y=mean_residential_percent_change,
              x=month, color=sub_region_1)) +
-  geom_point() + 
-  geom_line() + 
+  geom_point() +
+  geom_line() +
   geom_path()+
   ggtitle("Mean Percent Change of Residential in West US")+
-  ylab("Mean Percent Change of Residential") + 
-  xlab("Month") + 
-  labs(color="West States") + 
+  ylab("Mean Percent Change of Residential") +
+  xlab("Month") +
+  labs(color="West States") +
   scale_x_date(date_breaks = "1 month", date_labels = "%b") +
   scale_y_continuous(expand=c(0,1), breaks=seq(-60,60,5), limits=c(-5,20),
                      labels=as.character(seq(-60,60,5)))+
@@ -1126,7 +1126,7 @@ unemployment_West <- filter(unemployment, state %in% West.states)
 Plotting 2020 unemployment
 ```{r}
 unemploy.mw <- unemployment_Midwest %>%
-  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>% 
+  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>%
   ggplot(aes(x = month, y = unemployment.rate.2020, color = state)) +
   geom_line() +
   geom_point() +
@@ -1135,16 +1135,16 @@ unemploy.mw <- unemployment_Midwest %>%
   scale_y_continuous(expand=c(0,1), breaks=seq(-60,60,5), limits=c(0,30),
                      labels=as.character(seq(-60,60,5)))+
   ylab("Unemployment Rate") +
-  xlab("Month") + 
-  ggtitle("2020 Unemployment Rate in Midwest US") + 
+  xlab("Month") +
+  ggtitle("2020 Unemployment Rate in Midwest US") +
   theme_minimal() +
   theme(axis.title = element_text(size=12), # change axis style
         legend.title = element_text(size=12), # change legend style
         plot.title = element_text(size=14)) # change title style
 
 unemploy.ne <- unemployment_Northeast %>%
-  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>% 
-  ggplot(aes(x = month, y = unemployment.rate.2020, color = state)) + 
+  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>%
+  ggplot(aes(x = month, y = unemployment.rate.2020, color = state)) +
   geom_line() +
   geom_point() +
   scale_color_hue(name='Northeast States')+
@@ -1152,16 +1152,16 @@ unemploy.ne <- unemployment_Northeast %>%
   scale_y_continuous(expand=c(0,1), breaks=seq(-60,60,5), limits=c(0,30),
                      labels=as.character(seq(-60,60,5)))+
   ylab("Unemployment Rate") +
-  xlab("Month") + 
-  ggtitle("2020 Unemployment Rate in Northeast US") + 
+  xlab("Month") +
+  ggtitle("2020 Unemployment Rate in Northeast US") +
   theme_minimal() +
   theme(axis.title = element_text(size=12), # change axis style
         legend.title = element_text(size=12), # change legend style
         plot.title = element_text(size=14)) # change title style
 
 unemploy.s <- unemployment_South %>%
-  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>% 
-  ggplot(aes(x = month, y = unemployment.rate.2020, color = state)) + 
+  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>%
+  ggplot(aes(x = month, y = unemployment.rate.2020, color = state)) +
   geom_line() +
   geom_point() +
   scale_color_hue(name='South States')+
@@ -1169,16 +1169,16 @@ unemploy.s <- unemployment_South %>%
   scale_y_continuous(expand=c(0,1), breaks=seq(-60,60,5), limits=c(0,30),
                      labels=as.character(seq(-60,60,5)))+
   ylab("Unemployment Rate") +
-  xlab("Month") + 
-  ggtitle("2020 Unemployment Rate in South US") + 
+  xlab("Month") +
+  ggtitle("2020 Unemployment Rate in South US") +
   theme_minimal() +
   theme(axis.title = element_text(size=12), # change axis style
         legend.title = element_text(size=12), # change legend style
         plot.title = element_text(size=14)) # change title style
 
 unemploy.w <- unemployment_West %>%
-  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>% 
-  ggplot(aes(x = month, y = unemployment.rate.2020, color = state)) + 
+  mutate(month = as.Date(paste("2020-", month,"-01", sep=""))) %>%
+  ggplot(aes(x = month, y = unemployment.rate.2020, color = state)) +
   geom_line() +
   geom_point() +
   scale_color_hue(name='West States')+
@@ -1186,8 +1186,8 @@ unemploy.w <- unemployment_West %>%
   scale_y_continuous(expand=c(0,1), breaks=seq(-60,60,5), limits=c(0,30),
                      labels=as.character(seq(-60,60,5)))+
   ylab("Unemployment Rate") +
-  xlab("Month") + 
-  ggtitle("2020 Unemployment Rate in West US") + 
+  xlab("Month") +
+  ggtitle("2020 Unemployment Rate in West US") +
   theme_minimal() +
   theme(axis.title = element_text(size=12), # change axis style
         legend.title = element_text(size=12), # change legend style
@@ -1208,13 +1208,13 @@ svi.state_West <- filter(svi.state, STATE %in% West.states)
 Plotting poverty rate
 ```{r}
 svi.pov.mw <- svi.state_Midwest %>%
-  ggplot(aes(x = reorder(STATE, poverty.rate), y = poverty.rate, color = STATE, fill = STATE)) + 
-  geom_bar(stat = "identity") + 
+  ggplot(aes(x = reorder(STATE, poverty.rate), y = poverty.rate, color = STATE, fill = STATE)) +
+  geom_bar(stat = "identity") +
   coord_flip()+
   ylim(0, 0.21) +
   xlab("State") +
-  ylab("Poverty Rate") + 
-  ggtitle("Poverty Rate in Midwest US") + 
+  ylab("Poverty Rate") +
+  ggtitle("Poverty Rate in Midwest US") +
   theme_minimal() +
   theme(legend.position = 'none', # remove legend,
         axis.title = element_text(size=12), # change axis style
@@ -1222,13 +1222,13 @@ svi.pov.mw <- svi.state_Midwest %>%
         plot.title = element_text(size=14)) # change title style
 
 svi.pov.ne <- svi.state_Northeast %>%
-  ggplot(aes(x = reorder(STATE, poverty.rate), y = poverty.rate, color = STATE, fill = STATE)) + 
-  geom_bar(stat = "identity") + 
+  ggplot(aes(x = reorder(STATE, poverty.rate), y = poverty.rate, color = STATE, fill = STATE)) +
+  geom_bar(stat = "identity") +
   coord_flip()+
   ylim(0, 0.21) +
   xlab("State") +
-  ylab("Poverty Rate") + 
-  ggtitle("Poverty Rate in Northeast US") + 
+  ylab("Poverty Rate") +
+  ggtitle("Poverty Rate in Northeast US") +
   theme_minimal() +
   theme(legend.position = 'none', # remove legend,
         axis.title = element_text(size=12), # change axis style
@@ -1236,13 +1236,13 @@ svi.pov.ne <- svi.state_Northeast %>%
         plot.title = element_text(size=14)) # change title style
 
 svi.pov.s <- svi.state_South %>%
-  ggplot(aes(x = reorder(STATE, poverty.rate), y = poverty.rate, color = STATE, fill = STATE)) + 
-  geom_bar(stat = "identity") + 
+  ggplot(aes(x = reorder(STATE, poverty.rate), y = poverty.rate, color = STATE, fill = STATE)) +
+  geom_bar(stat = "identity") +
   coord_flip()+
   ylim(0, 0.21) +
   xlab("State") +
-  ylab("Poverty Rate") + 
-  ggtitle("Poverty Rate in South US") + 
+  ylab("Poverty Rate") +
+  ggtitle("Poverty Rate in South US") +
   theme_minimal() +
   theme(legend.position = 'none', # remove legend,
         axis.title = element_text(size=12), # change axis style
@@ -1250,15 +1250,15 @@ svi.pov.s <- svi.state_South %>%
         plot.title = element_text(size=14)) # change title style
 
 svi.pov.w <- svi.state_West %>%
-  ggplot(aes(x = reorder(STATE, poverty.rate), y = poverty.rate, color = STATE, fill = STATE)) + 
-  geom_bar(stat = "identity") + 
+  ggplot(aes(x = reorder(STATE, poverty.rate), y = poverty.rate, color = STATE, fill = STATE)) +
+  geom_bar(stat = "identity") +
   coord_flip()+
   geom_text(x=13, y =0.042, label = "New Mexico data missing",
             size = 5, color = "black")+
   ylim(0, 0.21) +
   xlab("State") +
-  ylab("Poverty Rate") + 
-  ggtitle("Poverty Rate in South US") + 
+  ylab("Poverty Rate") +
+  ggtitle("Poverty Rate in South US") +
   theme_minimal() +
   theme(legend.position = 'none', # remove legend,
         axis.title = element_text(size=12), # change axis style
@@ -1270,13 +1270,13 @@ svi.pov.w <- svi.state_West %>%
 Plotting uninsured rate
 ```{r}
 svi.uninsured.mw <- svi.state_Midwest %>%
-  ggplot(aes(x = reorder(STATE, uninsured.rate), y = uninsured.rate, color = STATE, fill = STATE)) + 
-  geom_bar(stat = "identity") + 
+  ggplot(aes(x = reorder(STATE, uninsured.rate), y = uninsured.rate, color = STATE, fill = STATE)) +
+  geom_bar(stat = "identity") +
   coord_flip()+
   ylim(0, 0.175) +
   xlab("State") +
-  ylab("Uninsured  Rate") + 
-  ggtitle("Uninsured Rate in Midwest US") + 
+  ylab("Uninsured  Rate") +
+  ggtitle("Uninsured Rate in Midwest US") +
   theme_minimal() +
   theme(legend.position = 'none', # remove legend,
         axis.title = element_text(size=12), # change axis style
@@ -1284,13 +1284,13 @@ svi.uninsured.mw <- svi.state_Midwest %>%
         plot.title = element_text(size=14)) # change title style
 
 svi.uninsured.ne <- svi.state_Northeast %>%
-  ggplot(aes(x = reorder(STATE, uninsured.rate), y = uninsured.rate, color = STATE, fill = STATE)) + 
-  geom_bar(stat = "identity") + 
+  ggplot(aes(x = reorder(STATE, uninsured.rate), y = uninsured.rate, color = STATE, fill = STATE)) +
+  geom_bar(stat = "identity") +
   coord_flip()+
   ylim(0, 0.175) +
   xlab("State") +
-  ylab("Uninsured  Rate") + 
-  ggtitle("Uninsured Rate in Northeast US") + 
+  ylab("Uninsured  Rate") +
+  ggtitle("Uninsured Rate in Northeast US") +
   theme_minimal() +
   theme(legend.position = 'none', # remove legend,
         axis.title = element_text(size=12), # change axis style
@@ -1298,13 +1298,13 @@ svi.uninsured.ne <- svi.state_Northeast %>%
         plot.title = element_text(size=14)) # change title style
 
 svi.uninsured.s <- svi.state_South %>%
-  ggplot(aes(x = reorder(STATE, uninsured.rate), y = uninsured.rate, color = STATE, fill = STATE)) + 
-  geom_bar(stat = "identity") + 
+  ggplot(aes(x = reorder(STATE, uninsured.rate), y = uninsured.rate, color = STATE, fill = STATE)) +
+  geom_bar(stat = "identity") +
   coord_flip()+
   ylim(0, 0.175) +
   xlab("State") +
-  ylab("Uninsured  Rate") + 
-  ggtitle("Uninsured Rate in South US") + 
+  ylab("Uninsured  Rate") +
+  ggtitle("Uninsured Rate in South US") +
   theme_minimal() +
   theme(legend.position = 'none', # remove legend,
         axis.title = element_text(size=12), # change axis style
@@ -1312,13 +1312,13 @@ svi.uninsured.s <- svi.state_South %>%
         plot.title = element_text(size=14)) # change title style
 
 svi.uninsured.w <- svi.state_West %>%
-  ggplot(aes(x = reorder(STATE, uninsured.rate), y = uninsured.rate, color = STATE, fill = STATE)) + 
-  geom_bar(stat = "identity") + 
+  ggplot(aes(x = reorder(STATE, uninsured.rate), y = uninsured.rate, color = STATE, fill = STATE)) +
+  geom_bar(stat = "identity") +
   coord_flip()+
   ylim(0, 0.175) +
   xlab("State") +
-  ylab("Uninsured  Rate") + 
-  ggtitle("Uninsured Rate in West US") + 
+  ylab("Uninsured  Rate") +
+  ggtitle("Uninsured Rate in West US") +
   theme_minimal() +
   theme(legend.position = 'none', # remove legend,
         axis.title = element_text(size=12), # change axis style
@@ -1330,13 +1330,13 @@ svi.uninsured.w <- svi.state_West %>%
 Plotting mobile home rate
 ```{r}
 svi.mobile.mw <- svi.state_Midwest %>%
-  ggplot(aes(x = reorder(STATE, mobile.home.rate), y = mobile.home.rate, color = STATE, fill = STATE)) + 
-  geom_bar(stat = "identity") + 
+  ggplot(aes(x = reorder(STATE, mobile.home.rate), y = mobile.home.rate, color = STATE, fill = STATE)) +
+  geom_bar(stat = "identity") +
   coord_flip()+
   ylim(0, 0.08) +
   xlab("State") +
-  ylab("Mobile Home Rate") + 
-  ggtitle("Mobile Home Rate in Midwest US") + 
+  ylab("Mobile Home Rate") +
+  ggtitle("Mobile Home Rate in Midwest US") +
   theme_minimal() +
   theme(legend.position = 'none', # remove legend,
         axis.title = element_text(size=12), # change axis style
@@ -1344,13 +1344,13 @@ svi.mobile.mw <- svi.state_Midwest %>%
         plot.title = element_text(size=14)) # change title style
 
 svi.mobile.ne <- svi.state_Northeast %>%
-  ggplot(aes(x = reorder(STATE, mobile.home.rate), y = mobile.home.rate, color = STATE, fill = STATE)) + 
-  geom_bar(stat = "identity") + 
+  ggplot(aes(x = reorder(STATE, mobile.home.rate), y = mobile.home.rate, color = STATE, fill = STATE)) +
+  geom_bar(stat = "identity") +
   coord_flip()+
   ylim(0, 0.08) +
   xlab("State") +
-  ylab("Mobile Home Rate") + 
-  ggtitle("Mobile Home Rate in Northeast US") + 
+  ylab("Mobile Home Rate") +
+  ggtitle("Mobile Home Rate in Northeast US") +
   theme_minimal() +
   theme(legend.position = 'none', # remove legend,
         axis.title = element_text(size=12), # change axis style
@@ -1358,13 +1358,13 @@ svi.mobile.ne <- svi.state_Northeast %>%
         plot.title = element_text(size=14)) # change title style
 
 svi.mobile.s <- svi.state_South %>%
-  ggplot(aes(x = reorder(STATE, mobile.home.rate), y = mobile.home.rate, color = STATE, fill = STATE)) + 
-  geom_bar(stat = "identity") + 
+  ggplot(aes(x = reorder(STATE, mobile.home.rate), y = mobile.home.rate, color = STATE, fill = STATE)) +
+  geom_bar(stat = "identity") +
   coord_flip()+
   ylim(0, 0.08) +
   xlab("State") +
-  ylab("Mobile Home Rate") + 
-  ggtitle("Mobile Home Rate in South US") + 
+  ylab("Mobile Home Rate") +
+  ggtitle("Mobile Home Rate in South US") +
   theme_minimal() +
   theme(legend.position = 'none', # remove legend,
         axis.title = element_text(size=12), # change axis style
@@ -1372,13 +1372,13 @@ svi.mobile.s <- svi.state_South %>%
         plot.title = element_text(size=14)) # change title style
 
 svi.mobile.w <- svi.state_West %>%
-  ggplot(aes(x = reorder(STATE, mobile.home.rate), y = mobile.home.rate, color = STATE, fill = STATE)) + 
-  geom_bar(stat = "identity") + 
+  ggplot(aes(x = reorder(STATE, mobile.home.rate), y = mobile.home.rate, color = STATE, fill = STATE)) +
+  geom_bar(stat = "identity") +
   coord_flip()+
   ylim(0, 0.08) +
   xlab("State") +
-  ylab("Mobile Home Rate") + 
-  ggtitle("Mobile Home Rate in West US") + 
+  ylab("Mobile Home Rate") +
+  ggtitle("Mobile Home Rate in West US") +
   theme_minimal() +
   theme(legend.position = 'none', # remove legend,
         axis.title = element_text(size=12), # change axis style
@@ -1389,13 +1389,13 @@ svi.mobile.w <- svi.state_West %>%
 Plotting minority rate
 ```{r}
 svi.minority.mw <- svi.state_Midwest %>%
-  ggplot(aes(x = reorder(STATE, minority.rate), y = minority.rate, color = STATE, fill = STATE)) + 
-  geom_bar(stat = "identity") + 
+  ggplot(aes(x = reorder(STATE, minority.rate), y = minority.rate, color = STATE, fill = STATE)) +
+  geom_bar(stat = "identity") +
   coord_flip()+
   ylim(0, 0.8) +
   xlab("State") +
-  ylab("Minority Rate") + 
-  ggtitle("Minority Rate in Midwest US") + 
+  ylab("Minority Rate") +
+  ggtitle("Minority Rate in Midwest US") +
   theme_minimal() +
   theme(legend.position = 'none', # remove legend,
         axis.title = element_text(size=12), # change axis style
@@ -1403,13 +1403,13 @@ svi.minority.mw <- svi.state_Midwest %>%
         plot.title = element_text(size=14)) # change title style
 
 svi.minority.ne <- svi.state_Northeast %>%
-  ggplot(aes(x = reorder(STATE, minority.rate), y = minority.rate, color = STATE, fill = STATE)) + 
-  geom_bar(stat = "identity") + 
+  ggplot(aes(x = reorder(STATE, minority.rate), y = minority.rate, color = STATE, fill = STATE)) +
+  geom_bar(stat = "identity") +
   coord_flip()+
   ylim(0, 0.8) +
   xlab("State") +
-  ylab("Minority Rate") + 
-  ggtitle("Minority Rate in Northeast US") + 
+  ylab("Minority Rate") +
+  ggtitle("Minority Rate in Northeast US") +
   theme_minimal() +
   theme(legend.position = 'none', # remove legend,
         axis.title = element_text(size=12), # change axis style
@@ -1417,13 +1417,13 @@ svi.minority.ne <- svi.state_Northeast %>%
         plot.title = element_text(size=14)) # change title style
 
 svi.minority.s <- svi.state_South %>%
-  ggplot(aes(x = reorder(STATE, minority.rate), y = minority.rate, color = STATE, fill = STATE)) + 
-  geom_bar(stat = "identity") + 
+  ggplot(aes(x = reorder(STATE, minority.rate), y = minority.rate, color = STATE, fill = STATE)) +
+  geom_bar(stat = "identity") +
   coord_flip()+
   ylim(0, 0.8) +
   xlab("State") +
-  ylab("Minority Rate") + 
-  ggtitle("Minority Rate in South US") + 
+  ylab("Minority Rate") +
+  ggtitle("Minority Rate in South US") +
   theme_minimal() +
   theme(legend.position = 'none', # remove legend,
         axis.title = element_text(size=12), # change axis style
@@ -1431,13 +1431,13 @@ svi.minority.s <- svi.state_South %>%
         plot.title = element_text(size=14)) # change title style
 
 svi.minority.w <- svi.state_West %>%
-  ggplot(aes(x = reorder(STATE, minority.rate), y = minority.rate, color = STATE, fill = STATE)) + 
-  geom_bar(stat = "identity") + 
+  ggplot(aes(x = reorder(STATE, minority.rate), y = minority.rate, color = STATE, fill = STATE)) +
+  geom_bar(stat = "identity") +
   coord_flip()+
   ylim(0, 0.8) +
   xlab("State") +
-  ylab("Minority Rate") + 
-  ggtitle("Minority Rate in West US") + 
+  ylab("Minority Rate") +
+  ggtitle("Minority Rate in West US") +
   theme_minimal() +
   theme(legend.position = 'none', # remove legend,
         axis.title = element_text(size=12), # change axis style
@@ -1448,13 +1448,13 @@ svi.minority.w <- svi.state_West %>%
 Plotting disabled rate
 ```{r}
 svi.disabled.mw <- svi.state_Midwest %>%
-  ggplot(aes(x = reorder(STATE, disabled.rate), y = disabled.rate, color = STATE, fill = STATE)) + 
-  geom_bar(stat = "identity") + 
+  ggplot(aes(x = reorder(STATE, disabled.rate), y = disabled.rate, color = STATE, fill = STATE)) +
+  geom_bar(stat = "identity") +
   coord_flip()+
   ylim(0, 0.2) +
   xlab("State") +
-  ylab("Disabled Rate") + 
-  ggtitle("Disabled Rate in Midwest US") + 
+  ylab("Disabled Rate") +
+  ggtitle("Disabled Rate in Midwest US") +
   theme_minimal() +
   theme(legend.position = 'none', # remove legend,
         axis.title = element_text(size=12), # change axis style
@@ -1462,13 +1462,13 @@ svi.disabled.mw <- svi.state_Midwest %>%
         plot.title = element_text(size=14)) # change title style
 
 svi.disabled.ne <- svi.state_Northeast %>%
-  ggplot(aes(x = reorder(STATE, disabled.rate), y = disabled.rate, color = STATE, fill = STATE)) + 
-  geom_bar(stat = "identity") + 
+  ggplot(aes(x = reorder(STATE, disabled.rate), y = disabled.rate, color = STATE, fill = STATE)) +
+  geom_bar(stat = "identity") +
   coord_flip()+
   ylim(0, 0.2) +
   xlab("State") +
-  ylab("Disabled Rate") + 
-  ggtitle("Disabled Rate in Northeast US") + 
+  ylab("Disabled Rate") +
+  ggtitle("Disabled Rate in Northeast US") +
   theme_minimal() +
   theme(legend.position = 'none', # remove legend,
         axis.title = element_text(size=12), # change axis style
@@ -1476,13 +1476,13 @@ svi.disabled.ne <- svi.state_Northeast %>%
         plot.title = element_text(size=14)) # change title style
 
 svi.disabled.s <- svi.state_South %>%
-  ggplot(aes(x = reorder(STATE, disabled.rate), y = disabled.rate, color = STATE, fill = STATE)) + 
-  geom_bar(stat = "identity") + 
+  ggplot(aes(x = reorder(STATE, disabled.rate), y = disabled.rate, color = STATE, fill = STATE)) +
+  geom_bar(stat = "identity") +
   coord_flip()+
   ylim(0, 0.2) +
   xlab("State") +
-  ylab("Disabled Rate") + 
-  ggtitle("Disabled Rate in South US") + 
+  ylab("Disabled Rate") +
+  ggtitle("Disabled Rate in South US") +
   theme_minimal() +
   theme(legend.position = 'none', # remove legend,
         axis.title = element_text(size=12), # change axis style
@@ -1490,13 +1490,13 @@ svi.disabled.s <- svi.state_South %>%
         plot.title = element_text(size=14)) # change title style
 
 svi.disabled.w <- svi.state_West %>%
-  ggplot(aes(x = reorder(STATE, disabled.rate), y = disabled.rate, color = STATE, fill = STATE)) + 
-  geom_bar(stat = "identity") + 
+  ggplot(aes(x = reorder(STATE, disabled.rate), y = disabled.rate, color = STATE, fill = STATE)) +
+  geom_bar(stat = "identity") +
   coord_flip()+
   ylim(0, 0.2) +
   xlab("State") +
-  ylab("Disabled Rate") + 
-  ggtitle("Disabled Rate in West US") + 
+  ylab("Disabled Rate") +
+  ggtitle("Disabled Rate in West US") +
   theme_minimal() +
   theme(legend.position = 'none', # remove legend,
         axis.title = element_text(size=12), # change axis style
@@ -1508,13 +1508,13 @@ svi.disabled.w <- svi.state_West %>%
 Plotting elderly rate
 ```{r}
 svi.old.mw <- svi.state_Midwest %>%
-  ggplot(aes(x = reorder(STATE, age65.rate), y = age65.rate, color = STATE, fill = STATE)) + 
-  geom_bar(stat = "identity") + 
+  ggplot(aes(x = reorder(STATE, age65.rate), y = age65.rate, color = STATE, fill = STATE)) +
+  geom_bar(stat = "identity") +
   coord_flip()+
   ylim(0, 0.2) +
   xlab("State") +
-  ylab("Age over 65 Rate") + 
-  ggtitle("Age over 65 Rate in Midwest US") + 
+  ylab("Age over 65 Rate") +
+  ggtitle("Age over 65 Rate in Midwest US") +
   theme_minimal() +
   theme(legend.position = 'none', # remove legend,
         axis.title = element_text(size=12), # change axis style
@@ -1522,13 +1522,13 @@ svi.old.mw <- svi.state_Midwest %>%
         plot.title = element_text(size=14)) # change title style
 
 svi.old.ne <- svi.state_Northeast %>%
-  ggplot(aes(x = reorder(STATE, age65.rate), y = age65.rate, color = STATE, fill = STATE)) + 
-  geom_bar(stat = "identity") + 
+  ggplot(aes(x = reorder(STATE, age65.rate), y = age65.rate, color = STATE, fill = STATE)) +
+  geom_bar(stat = "identity") +
   coord_flip()+
   ylim(0, 0.2) +
   xlab("State") +
-  ylab("Age over 65 Rate") + 
-  ggtitle("Age over 65 Rate in Northeast US") + 
+  ylab("Age over 65 Rate") +
+  ggtitle("Age over 65 Rate in Northeast US") +
   theme_minimal() +
   theme(legend.position = 'none', # remove legend,
         axis.title = element_text(size=12), # change axis style
@@ -1536,13 +1536,13 @@ svi.old.ne <- svi.state_Northeast %>%
         plot.title = element_text(size=14)) # change title style
 
 svi.old.s <- svi.state_South %>%
-  ggplot(aes(x = reorder(STATE, age65.rate), y = age65.rate, color = STATE, fill = STATE)) + 
-  geom_bar(stat = "identity") + 
+  ggplot(aes(x = reorder(STATE, age65.rate), y = age65.rate, color = STATE, fill = STATE)) +
+  geom_bar(stat = "identity") +
   coord_flip()+
   ylim(0, 0.2) +
   xlab("State") +
-  ylab("Age over 65 Rate") + 
-  ggtitle("Age over 65 Rate in South US") + 
+  ylab("Age over 65 Rate") +
+  ggtitle("Age over 65 Rate in South US") +
   theme_minimal() +
   theme(legend.position = 'none', # remove legend,
         axis.title = element_text(size=12), # change axis style
@@ -1550,13 +1550,13 @@ svi.old.s <- svi.state_South %>%
         plot.title = element_text(size=14)) # change title style
 
 svi.old.w <- svi.state_West %>%
-  ggplot(aes(x = reorder(STATE, age65.rate), y = age65.rate, color = STATE, fill = STATE)) + 
-  geom_bar(stat = "identity") + 
+  ggplot(aes(x = reorder(STATE, age65.rate), y = age65.rate, color = STATE, fill = STATE)) +
+  geom_bar(stat = "identity") +
   coord_flip()+
   ylim(0, 0.2) +
   xlab("State") +
-  ylab("Age over 65 Rate") + 
-  ggtitle("Age over 65 Rate in West US") + 
+  ylab("Age over 65 Rate") +
+  ggtitle("Age over 65 Rate in West US") +
   theme_minimal() +
   theme(legend.position = 'none', # remove legend,
         axis.title = element_text(size=12), # change axis style
@@ -1568,13 +1568,13 @@ svi.old.w <- svi.state_West %>%
 Plotting per capita income
 ```{r}
 svi.pci.mw <- svi.state_Midwest %>%
-  ggplot(aes(x = reorder(STATE, per.capita), y = per.capita, color = STATE, fill = STATE)) + 
-  geom_bar(stat = "identity") + 
+  ggplot(aes(x = reorder(STATE, per.capita), y = per.capita, color = STATE, fill = STATE)) +
+  geom_bar(stat = "identity") +
   coord_flip()+
   ylim(0, 55000) +
   xlab("State") +
-  ylab("Per Capita Income") + 
-  ggtitle("Per Capita Income in Midwest US") + 
+  ylab("Per Capita Income") +
+  ggtitle("Per Capita Income in Midwest US") +
   theme_minimal() +
   theme(legend.position = 'none', # remove legend,
         axis.title = element_text(size=12), # change axis style
@@ -1582,13 +1582,13 @@ svi.pci.mw <- svi.state_Midwest %>%
         plot.title = element_text(size=14)) # change title style
 
 svi.pci.ne <- svi.state_Northeast %>%
-  ggplot(aes(x = reorder(STATE, per.capita), y = per.capita, color = STATE, fill = STATE)) + 
-  geom_bar(stat = "identity") + 
+  ggplot(aes(x = reorder(STATE, per.capita), y = per.capita, color = STATE, fill = STATE)) +
+  geom_bar(stat = "identity") +
   coord_flip()+
   ylim(0, 55000) +
   xlab("State") +
-  ylab("Per Capita Income") + 
-  ggtitle("Per Capita Income in Northeast US") + 
+  ylab("Per Capita Income") +
+  ggtitle("Per Capita Income in Northeast US") +
   theme_minimal() +
   theme(legend.position = 'none', # remove legend,
         axis.title = element_text(size=12), # change axis style
@@ -1596,13 +1596,13 @@ svi.pci.ne <- svi.state_Northeast %>%
         plot.title = element_text(size=14)) # change title style
 
 svi.pci.s <- svi.state_South %>%
-  ggplot(aes(x = reorder(STATE, per.capita), y = per.capita, color = STATE, fill = STATE)) + 
-  geom_bar(stat = "identity") + 
+  ggplot(aes(x = reorder(STATE, per.capita), y = per.capita, color = STATE, fill = STATE)) +
+  geom_bar(stat = "identity") +
   coord_flip()+
   ylim(0, 55000) +
   xlab("State") +
-  ylab("Per Capita Income") + 
-  ggtitle("Per Capita Income in South US") + 
+  ylab("Per Capita Income") +
+  ggtitle("Per Capita Income in South US") +
   theme_minimal() +
   theme(legend.position = 'none', # remove legend,
         axis.title = element_text(size=12), # change axis style
@@ -1610,15 +1610,15 @@ svi.pci.s <- svi.state_South %>%
         plot.title = element_text(size=14)) # change title style
 
 svi.pci.w <- svi.state_West %>%
-  ggplot(aes(x = reorder(STATE, per.capita), y = per.capita, color = STATE, fill = STATE)) + 
-  geom_bar(stat = "identity") + 
+  ggplot(aes(x = reorder(STATE, per.capita), y = per.capita, color = STATE, fill = STATE)) +
+  geom_bar(stat = "identity") +
   coord_flip()+
   geom_text(x=13, y =10800, label = "New Mexico data missing",
             size = 5, color = "black")+
   ylim(0, 55000) +
   xlab("State") +
-  ylab("Per Capita Income") + 
-  ggtitle("Per Capita Income in West US") + 
+  ylab("Per Capita Income") +
+  ggtitle("Per Capita Income in West US") +
   theme_minimal() +
   theme(legend.position = 'none', # remove legend,
         axis.title = element_text(size=12), # change axis style
@@ -1627,9 +1627,9 @@ svi.pci.w <- svi.state_West %>%
 ### New Mexico data missing
 ```
 
-# linear regression analysis 
+# linear regression analysis
 
-Create SVI & mortality rates data frame with mortality rates calculated by cumulative death over cumulative confirmed 
+Create SVI & mortality rates data frame with mortality rates calculated by cumulative death over cumulative confirmed
 ```{r}
 svi.analysis <- svi.state %>%
   select(c(STATE, poverty.rate, per.capita, no.HS.rate, age65.rate, disabled.rate, minority.rate, uninsured.rate)) %>%
@@ -1645,12 +1645,12 @@ svi.mortality <- svi.analysis %>%
   select(-state)
 
 
-# log transformation of per capita income 
+# log transformation of per capita income
 svi.mortality <- svi.mortality %>%
   mutate(pci.log = log10(per.capita))
 
 
-# added population density 
+# added population density
 svi.pop <- svi.state %>%
   select(c(STATE, poverty.rate, per.capita, no.HS.rate, age65.rate, disabled.rate, minority.rate, uninsured.rate, population.density)) %>%
   mutate(state = STATE)
@@ -1666,20 +1666,20 @@ svi.mortality.pop <- svi.mortality.pop %>%
   select(-c(per.capita, population.density))
 ```
 
-Create mobility & active rates data frame with active rates calculated by active cases over total population with a lag of 5 days 
+Create mobility & active rates data frame with active rates calculated by active cases over total population with a lag of 5 days
 ```{r}
 library(lubridate)
-# making changing rates of covid active data 
-covid.active.diff <- covid.time.series %>% 
+# making changing rates of covid active data
+covid.active.diff <- covid.time.series %>%
   select(c(state, date, active.rates)) %>%
   group_by(state) %>%
   mutate(active.changes = active.rates - lag(active.rates))
 
 # potential complications of different baselines for each day in the week
-# making changing rates of mobility data 
+# making changing rates of mobility data
 mobility.change <- StateMonthMobility %>%
-  mutate(check.parks = parks_percent_change_from_baseline, 
-         check.transit = transit_stations_percent_change_from_baseline) %>% 
+  mutate(check.parks = parks_percent_change_from_baseline,
+         check.transit = transit_stations_percent_change_from_baseline) %>%
 #  fill(parks_percent_change_from_baseline) %>%
 #  fill(transit_stations_percent_change_from_baseline) %>%
   mutate(retail.recration.diff = retail_and_recreation_percent_change_from_baseline - lag(retail_and_recreation_percent_change_from_baseline),
@@ -1687,7 +1687,7 @@ mobility.change <- StateMonthMobility %>%
          parks.diff = parks_percent_change_from_baseline - lag(parks_percent_change_from_baseline),
          transit.diff = transit_stations_percent_change_from_baseline - lag(transit_stations_percent_change_from_baseline),
          workplaces.diff = workplaces_percent_change_from_baseline - lag(workplaces_percent_change_from_baseline),
-         residential.diff = residential_percent_change_from_baseline - lag(residential_percent_change_from_baseline)) %>% 
+         residential.diff = residential_percent_change_from_baseline - lag(residential_percent_change_from_baseline)) %>%
   mutate(parks.diff = ifelse(is.na(check.parks), NA, parks.diff),
          transit.diff = ifelse(is.na(check.transit), NA, transit.diff))
 
@@ -1703,29 +1703,72 @@ mobility.active <- merge(mobility.change, covid.active.diff, by.x = c("sub_regio
 # active rates df
 mobility.active <- mobility.active %>%
   mutate(state = sub_region_1) %>%
-  select(c(state, date, retail_and_recreation_percent_change_from_baseline, grocery_and_pharmacy_percent_change_from_baseline, parks_percent_change_from_baseline, transit_stations_percent_change_from_baseline, workplaces_percent_change_from_baseline, residential_percent_change_from_baseline, active.rates)) %>% 
-  filter(date >= as.Date("2020-04-13")) %>% 
-  mutate(month = months(date), 
+  select(c(state, date, retail_and_recreation_percent_change_from_baseline, grocery_and_pharmacy_percent_change_from_baseline, parks_percent_change_from_baseline, transit_stations_percent_change_from_baseline, workplaces_percent_change_from_baseline, residential_percent_change_from_baseline, active.rates)) %>%
+  filter(date >= as.Date("2020-04-13")) %>%
+  mutate(month = months(date),
          week = format(date, format = '%W'),
          # the following code converts to biweekly
          biweek = 14 * (as.numeric(date - min(date)) %/% 14) + min(date)) %>%
   group_by(state, biweek) %>%
   summarise(active.avg = mean(active.rates),
             retail.recreation.avg = mean(retail_and_recreation_percent_change_from_baseline),
-            grocery.pharmacy.avg = mean(grocery_and_pharmacy_percent_change_from_baseline), 
-            parks.avg = mean(parks_percent_change_from_baseline, na.rm=TRUE), 
+            grocery.pharmacy.avg = mean(grocery_and_pharmacy_percent_change_from_baseline),
+            parks.avg = mean(parks_percent_change_from_baseline, na.rm=TRUE),
             transit.avg = mean(transit_stations_percent_change_from_baseline, na.rm=TRUE),
             workplace.avg = mean(workplaces_percent_change_from_baseline),
-            residential.avg = mean(residential_percent_change_from_baseline)) 
+            residential.avg = mean(residential_percent_change_from_baseline))
 
-# need to marking off public holidays 
+# need to marking off public holidays
 # change to bi-weekly later
-# use SVI to pick out top n and bottom n states 
-# within these states, do state by state mobility ~ covid lm 
+# use SVI to pick out top n and bottom n states
+# within these states, do state by state mobility ~ covid lm
 
 ```
 
 Linear regression
+
+
+Linear regression
+For all states
+```{r}
+# poverty rates
+pov.mortality.lm <- lm(mortality.avg ~ poverty.rate, svi.mortality)
+pov.mortality.sum <- summary(pov.mortality.lm)
+ 
+# per capita 
+pci.mortality.lm <- lm(mortality.avg ~ per.capita, svi.mortality)
+pci.mortality.sum <- summary(pci.mortality.lm)
+ 
+#no HS rates 
+noHS.mortality.lm <- lm(mortality.avg ~ no.HS.rate, svi.mortality)
+noHS.mortality.sum <- summary(noHS.mortality.lm)
+ 
+#age 65/elderly rates 
+age.mortality.lm <- lm(mortality.avg ~ age65.rate, svi.mortality)
+age.mortality.sum <- summary(age.mortality.lm)
+ 
+#unisured rates
+uninsured.mortality.lm <- lm(mortality.avg ~ uninsured.rate, svi.mortality)
+uninsured.mortality.sum <- summary(uninsured.mortality.lm)
+ 
+#minority rates
+minority.mortality.lm <- lm(mortality.avg ~ minority.rate, svi.mortality)
+minority.mortality.sum <- summary(minority.mortality.lm)
+ 
+disabled.mortality.lm <- lm(mortality.avg ~ disabled.rate, svi.mortality)
+disabled.mortality.sum <- summary(disabled.mortality.lm)
+ 
+```
+
+
+
+
+
+
+
+
+
+
 ```{r}
 svi.crit = 10
 
@@ -1736,7 +1779,7 @@ svi.pov.bottom <- svi.mortality %>%
   slice_min(poverty.rate, n = svi.crit)
 
 svi.pov.top.states <- svi.pov.top$STATE
-svi.pov.bottom.states <- svi.pov.bottom$STATE 
+svi.pov.bottom.states <- svi.pov.bottom$STATE
 
 pov.mortality.lm <- lm(mortality.avg ~ poverty.rate, svi.mortality)
 pov.mortality.sum <- summary(pov.mortality.lm)
@@ -1746,14 +1789,14 @@ pov.mortality.bottom.lm <- lm(mortality.avg ~ poverty.rate, svi.pov.bottom)
 pov.mortality.bottom.sum <- summary(pov.mortality.bottom.lm)
 
 
-# per capita 
+# per capita
 svi.pci.top <- svi.mortality %>%
   slice_max(per.capita, n = svi.crit)
 svi.pci.bottom <- svi.mortality %>%
   slice_min(per.capita, n = svi.crit)
 
 svi.pci.top.states <- svi.pci.top$STATE
-svi.pci.bottom.states <- svi.pci.bottom$STATE 
+svi.pci.bottom.states <- svi.pci.bottom$STATE
 
 pci.log.mortality.lm <- lm(mortality.avg ~ pci.log, svi.mortality)
 pci.log.mortality.sum <- summary(pci.log.mortality.lm)
@@ -1761,17 +1804,17 @@ pci.log.mortality.top.lm <- lm(mortality.avg ~ pci.log, svi.pci.top)
 pci.log.mortality.top.sum <- summary(pci.log.mortality.top.lm)
 pci.log.mortality.bottom.lm <- lm(mortality.avg ~ pci.log, svi.pci.bottom)
 pci.log.mortality.bottom.sum <- summary(pci.log.mortality.bottom.lm)
-# pci is significant for all states but not top and bottom states 
+# pci is significant for all states but not top and bottom states
 
 
-# no HS rates 
+# no HS rates
 svi.noHS.top <- svi.mortality %>%
   slice_max(no.HS.rate, n = svi.crit)
 svi.noHS.bottom <- svi.mortality %>%
   slice_min(no.HS.rate, n = svi.crit)
 
 svi.noHS.top.states <- svi.noHS.top$STATE
-svi.noHS.bottom.states <- svi.noHS.bottom$STATE 
+svi.noHS.bottom.states <- svi.noHS.bottom$STATE
 
 
 
@@ -1782,7 +1825,7 @@ noHS.mortality.bottom.sum <- summary(noHS.mortality.bottom.lm)
 
 
 
-# age 65/elderly rates 
+# age 65/elderly rates
 svi.age.top <- svi.mortality %>%
   slice_max(age65.rate, n = svi.crit)
 svi.age.bottom <- svi.mortality %>%
@@ -1805,7 +1848,7 @@ svi.disabled.bottom <- svi.mortality %>%
   slice_min(disabled.rate, n = svi.crit)
 
 svi.disabled.top.states <- svi.disabled.top$STATE
-svi.disabled.bottom.states <- svi.disabled.bottom$STATE 
+svi.disabled.bottom.states <- svi.disabled.bottom$STATE
 
 disabled.mortality.top.lm <- lm(mortality.avg ~ disabled.rate, svi.disabled.top)
 disabled.mortality.top.sum <- summary(disabled.mortality.top.lm)
@@ -1813,7 +1856,7 @@ disabled.mortality.bottom.lm <- lm(mortality.avg ~ disabled.rate, svi.disabled.b
 disabled.mortality.bottom.sum <- summary(disabled.mortality.bottom.lm)
 
 
-# minority 
+# minority
 svi.minority.top <- svi.mortality %>%
         slice_max(minority.rate, n = svi.crit)
 svi.minority.bottom <- svi.mortality %>%
@@ -1829,7 +1872,7 @@ minority.mortality.bottom.sum <- summary(minority.mortality.bottom.lm)
 # minority bottom
 
 
-# uninsured rates 
+# uninsured rates
 svi.uninsured.top <- svi.mortality %>%
         slice_max(uninsured.rate, n = svi.crit)
 svi.uninsured.bottom <- svi.mortality %>%
@@ -1844,7 +1887,7 @@ uninsured.mortality.top.lm <- lm(mortality.avg ~ uninsured.rate, svi.uninsured.t
 uninsured.mortality.top.sum <- summary(uninsured.mortality.top.lm)
 uninsured.mortality.bottom.lm <- lm(mortality.avg ~ uninsured.rate, svi.uninsured.bottom)
 uninsured.mortality.bottom.sum <- summary(uninsured.mortality.bottom.lm)
-# uninsured also significant 
+# uninsured also significant
 
 # pci & uninsured
 pci.log.uninsured.mortality.lm <- lm(mortality.avg ~ pci.log + uninsured.rate, svi.mortality)
@@ -1855,23 +1898,23 @@ pci.uninsured <- svi.mortality %>%
   filter(!is.na(pci.log))
 cor(pci.uninsured$pci.log, pci.uninsured$uninsured.rate)
 # cor = -0.4745319
-# cor < 0.7 
+# cor < 0.7
 
-# population density 
+# population density
 pop.mortality.lm <- lm(mortality.avg ~ pop.log, svi.mortality.pop)
 pop.mortality.sum <- summary(pop.mortality.lm)
 
 
-svi.top.states <- table(c(svi.pov.top.states, svi.pci.bottom.states, svi.noHS.top.states, svi.age.top.states, svi.disabled.top.states, svi.minority.top.states, svi.uninsured.top.states)) 
+svi.top.states <- table(c(svi.pov.top.states, svi.pci.bottom.states, svi.noHS.top.states, svi.age.top.states, svi.disabled.top.states, svi.minority.top.states, svi.uninsured.top.states))
 
 svi.top.overlap.states <- sort(svi.top.states, decreasing=T)[1:5]
 
-svi.bottom.states <- table(c(svi.pov.bottom.states, svi.pci.top.states, svi.noHS.bottom.states, svi.age.bottom.states, svi.disabled.bottom.states, svi.minority.bottom.states, svi.uninsured.bottom.states)) 
+svi.bottom.states <- table(c(svi.pov.bottom.states, svi.pci.top.states, svi.noHS.bottom.states, svi.age.bottom.states, svi.disabled.bottom.states, svi.minority.bottom.states, svi.uninsured.bottom.states))
 svi.bottom.overlap.states <- sort(svi.bottom.states, decreasing=T)[1:6]
 
 ```
 
-r-squared table 
+r-squared table
 ```{r}
 m0 <- lm(mortality.avg ~ 1, svi.mortality.pop)
 add1(m0, lm(mortality.avg ~ ., svi.mortality.pop))
@@ -1883,7 +1926,7 @@ rsqs1 <- map_dbl(cnames1, col.rsq1)
 svi.mortality.rsq <- tibble(cname = cnames1, rsq = rsqs1) %>% arrange(desc(rsq))
 svi.mortality.rsq
 cor.test(svi.mortality.pop$pop.log, svi.mortality.pop$pci.log)
-# could revisit if there is extra time 
+# could revisit if there is extra time
 
 m1 <- lm(mortality.avg ~ pop.log, svi.mortality.pop)
 summary(m1)
@@ -1892,7 +1935,7 @@ summary(m1)
 
 
 ```{r}
-# top and bottom states for pci and uninsured 
+# top and bottom states for pci and uninsured
 svi.sigl.crit = 5
 svi.pci.sig.top <- svi.mortality %>%
   slice_max(per.capita, n = svi.sigl.crit)
@@ -1901,24 +1944,24 @@ svi.pci.sig.top.states = svi.pci.sig.top$STATE
 svi.pci.sig.bottom <- svi.mortality %>%
   slice_min(per.capita, n = svi.sigl.crit)
 svi.pci.sig.bottom.states = svi.pci.sig.bottom$STATE
-# *"Mississippi"*   *"West Virginia"* "Arkansas"      "Idaho"         *"Alabama"* 
+# *"Mississippi"*   *"West Virginia"* "Arkansas"      "Idaho"         *"Alabama"*
 
 svi.sig.uninsured.top <- svi.mortality %>%
         slice_max(uninsured.rate, n = svi.sigl.crit)
 svi.sig.uninsured.top.states = svi.sig.uninsured.top$STATE
-# "Texas"    "Alaska"   "Oklahoma" "Georgia"  "Florida" 
+# "Texas"    "Alaska"   "Oklahoma" "Georgia"  "Florida"
 svi.sig.uninsured.bottom <- svi.mortality %>%
         slice_min(uninsured.rate, n = svi.sigl.crit)
 svi.sig.uninsured.bottom.states = svi.sig.uninsured.bottom$STATE
 # "Massachusetts" "Hawaii"        "Vermont"       *"Minnesota"*     "Iowa"   
 
-svi.pop.sig.top <- svi.mortality %>%
-  slice_max(population.density, n = svi.sigl.crit)
+svi.pop.sig.top <- svi.mortality.pop %>%
+  slice_max(pop.log, n = svi.sigl.crit)
 svi.pop.sig.top.states = svi.pop.sig.top$STATE
 # "New Jersey"    "Rhode Island"  "Massachusetts" "Connecticut"   "Maryland"    
 
-svi.pop.sig.bottom <- svi.mortality %>%
-  slice_min(population.density, n = svi.sigl.crit)
+svi.pop.sig.bottom <- svi.mortality.pop %>%
+  slice_min(pop.log, n = svi.sigl.crit)
 svi.pop.sig.bottom.states = svi.pop.sig.bottom$STATE
 # "Alaska"       "Wyoming"      "Montana"      "North Dakota" "South Dakota"
 
@@ -1926,7 +1969,7 @@ svi.pop.sig.bottom.states = svi.pop.sig.bottom$STATE
 ```
 
 
-### svi states to covid ~ active rates 
+### svi states to covid ~ active rates
 #### Top Five States
 
 Mississippi
@@ -1986,7 +2029,7 @@ residential.active.West.Virginia.sum <- summary(residential.active.West.Virginia
 
 ```
 
-Alabama 
+Alabama
 ```{r}
 mobility.active.Alabama <- mobility.active %>%
   filter(state == "Alabama")
@@ -2013,7 +2056,7 @@ residential.active.Alabama.sum <- summary(residential.active.Alabama.lm)
 
 ```
 
-Kentucky 
+Kentucky
 ```{r}
 
 mobility.active.Kentucky  <- mobility.active %>%
@@ -2040,7 +2083,7 @@ residential.active.Kentucky.sum <- summary(residential.active.Kentucky.lm)
 # significant results: transit.active.Kentucky.sum(*), workplace.active.Kentucky.sum(**), residential.active.Kentucky.sum(*)
 ```
 
-Louisiana 
+Louisiana
 ```{r}
 
 mobility.active.Louisiana  <- mobility.active %>%
@@ -2069,17 +2112,17 @@ residential.active.Louisiana.sum <- summary(residential.active.Louisiana.lm)
 
 #### Bottom Six States
 
-Minnesota 
+Minnesota
 ```{r}
 mobility.active.Minnesota <- mobility.active %>%
   filter(state == "Minnesota")
 
-#retail and recreation 
+#retail and recreation
 retail.active.Minnesota.lm <- lm(active.avg ~ retail.recreation.avg, mobility.active.Minnesota)
 retail.active.Minnesota.sum <- summary(retail.active.Minnesota.lm)
 
 
-#grocery 
+#grocery
 grocery.active.Minnesota.lm <- lm(active.avg ~ grocery.pharmacy.avg, mobility.active.Minnesota)
 grocery.active.Minnesota.sum <- summary(grocery.active.Minnesota.lm)
 
@@ -2096,25 +2139,25 @@ transit.active.Minnesota.sum <- summary(transit.active.Minnesota.lm)
 workplace.active.Minnesota.lm <- lm(active.avg ~ workplace.avg, mobility.active.Minnesota)
 workplace.active.Minnesota.sum <- summary(workplace.active.Minnesota.lm)
 
-#residential 
+#residential
 residential.active.Minnesota.lm <- lm(active.avg ~ residential.avg, mobility.active.Minnesota)
 residential.active.Minnesota.sum <- summary(residential.active.Minnesota.lm)
 
 
-#none significant for minnesota 
+#none significant for minnesota
 ```
 
-North Dakota 
+North Dakota
 ```{r}
 mobility.active.ND <- mobility.active %>%
   filter(state == "North Dakota")
 
-#retail and recreation 
+#retail and recreation
 retail.active.ND.lm <- lm(active.avg ~ retail.recreation.avg, mobility.active.ND)
 retail.active.ND.sum <- summary(retail.active.ND.lm)
 
 
-#grocery 
+#grocery
 grocery.active.ND.lm <- lm(active.avg ~ grocery.pharmacy.avg, mobility.active.ND)
 grocery.active.ND.sum <- summary(grocery.active.ND.lm)
 
@@ -2131,7 +2174,7 @@ transit.active.ND.sum <- summary(transit.active.ND.lm)
 workplace.active.ND.lm <- lm(active.avg ~ workplace.avg, mobility.active.ND)
 workplace.active.ND.sum <- summary(workplace.active.ND.lm)
 
-#residential 
+#residential
 residential.active.ND.lm <- lm(active.avg ~ residential.avg, mobility.active.ND)
 residential.active.ND.sum <- summary(residential.active.ND.lm)
 
@@ -2187,7 +2230,7 @@ workplace.active.Maryland.sum <- summary(workplace.active.Maryland.lm)
 residential.active.Maryland.lm <- lm(active.avg ~ residential.avg, mobility.active.Maryland)
 residential.active.Maryland.sum <- summary(residential.active.Maryland.lm)
 
-#significant results: retail.active.Maryland.sum (***), transit.active.Maryland.sum (*), workplace.active.Maryland.sum (***), workplace.active.Maryland.sum (***). 
+#significant results: retail.active.Maryland.sum (***), transit.active.Maryland.sum (*), workplace.active.Maryland.sum (***), workplace.active.Maryland.sum (***).
 ```
 
 New Hampshire
@@ -2255,7 +2298,7 @@ residential.active.Utah.sum <- summary(residential.active.Utah.lm)
 
 
 # significant results:  transit.active.Utah.sum (*),workplace.active.Utah.sum(*),residental.active.Utah.sum(*)
-``` 
+```
 
 
 Massachusetts
@@ -2290,7 +2333,7 @@ residential.active.Massachusetts.sum <- summary(residential.active.Massachusetts
 
 
 # significant results:  none
-``` 
+```
 
 
 New Jersey
@@ -2325,17 +2368,17 @@ residential.active.New.Jersey.sum <- summary(residential.active.New.Jersey.lm)
 
 
 # significant results:  retail.active.New.Jersey.sum(***), transit.active.New.Jersey.sum(***), workplace.active.New.Jersey.sum (***), residential.active.New.Jersey.sum(***)
-``` 
+```
 
 
-Texas 
+Texas
 ```{r}
 mobility.active.Texas <- mobility.active %>%
         filter(state == "Texas")
-#retail and recreation 
+#retail and recreation
 retail.active.Texas.lm <- lm(active.avg ~ retail.recreation.avg, mobility.active.Texas)
 retail.active.Texas.sum <- summary(retail.active.Texas.lm)
-#grocery 
+#grocery
 grocery.active.Texas.lm <- lm(active.avg ~ grocery.pharmacy.avg, mobility.active.Texas)
 grocery.active.Texas.sum <- summary(grocery.active.Texas.lm)
 #parks
@@ -2347,7 +2390,7 @@ transit.active.Texas.sum <- summary(transit.active.Texas.lm)
 #workplace
 workplace.active.Texas.lm <- lm(active.avg ~ workplace.avg, mobility.active.Texas)
 workplace.active.Texasa.sum <- summary(workplace.active.Texas.lm)
-#residential 
+#residential
 residential.active.Texas.lm <- lm(active.avg ~ residential.avg, mobility.active.Texas)
 residential.active.Texas.sum <- summary(residential.active.Texas.lm)
 
@@ -2358,14 +2401,14 @@ Arkansas
 ```{r}
 mobility.active.Arkansas <- mobility.active %>%        
   filter(state == "Arkansas")
-#retail and recreation 
+#retail and recreation
 retail.active.Arkansas.lm <- lm(active.avg ~ retail.recreation.avg, mobility.active.Arkansas)
 retail.active.Arkansas.sum <- summary(retail.active.Arkansas.lm)
-#grocery 
+#grocery
 grocery.active.Arkansas.lm <- lm(active.avg ~ grocery.pharmacy.avg, mobility.active.Arkansas)
 grocery.active.Arkansas.sum <- summary(grocery.active.Arkansas.lm)
-#parks 
-parks.active.Arkansas.lm <- lm(active.avg ~ parks.avg, mobility.active.Arkansas) 
+#parks
+parks.active.Arkansas.lm <- lm(active.avg ~ parks.avg, mobility.active.Arkansas)
 parks.active.Arkansas.sum <- summary(parks.active.Arkansas.lm)
 
 #transit
@@ -2375,7 +2418,7 @@ transit.active.Arkansas.sum <- summary(transit.active.Arkansas.lm)
 workplace.active.Arkansas.lm <- lm(active.avg ~ workplace.avg, mobility.active.Arkansas)
 workplace.active.Arkansas.sum <- summary(workplace.active.Arkansas.lm)
 
-#residential 
+#residential
 residential.active.Arkansas.lm <- lm(active.avg ~ residential.avg, mobility.active.Arkansas)
 residential.active.Arkansas.sum <- summary(residential.active.Arkansas.lm)
 
@@ -2420,10 +2463,10 @@ Idaho
 ```{r}
 mobility.active.Idaho <- mobility.active %>%        
   filter(state == "Idaho")
-#retail and recreation 
+#retail and recreation
 retail.active.Idaho.lm <- lm(active.avg ~ retail.recreation.avg, mobility.active.Idaho)
 retail.active.Idaho.sum <- summary(retail.active.Idaho.lm)
-#grocery 
+#grocery
 grocery.active.Idaho.lm <- lm(active.avg ~ grocery.pharmacy.avg, mobility.active.Idaho)
 grocery.active.Idaho.sum <- summary(grocery.active.Idaho.lm)
 #parks
@@ -2437,7 +2480,7 @@ transit.active.Idaho.sum <- summary(transit.active.Idaho.lm)
 workplace.active.Idaho.lm <- lm(active.avg ~ workplace.avg, mobility.active.Idaho)
 workplace.active.Idaho.sum <- summary(workplace.active.Idaho.lm)
 
-#residential 
+#residential
 residential.active.Idaho.lm <- lm(active.avg ~ residential.avg, mobility.active.Idaho)
 residential.active.Idaho.sum <- summary(residential.active.Idaho.lm)
 
@@ -2483,12 +2526,12 @@ Oklahoma
 ```{r}
 mobility.active.Oklahoma <- mobility.active %>%
         filter(state == "Oklahoma")
-#retail and recreation 
+#retail and recreation
 retail.active.Oklahoma.lm <- lm(active.avg ~ retail.recreation.avg, mobility.active.Oklahoma)
 retail.active.Oklahoma.sum <- summary(retail.active.Oklahoma.lm)
 
 
-#grocery 
+#grocery
 grocery.active.Oklahoma.lm <- lm(active.avg ~ grocery.pharmacy.avg, mobility.active.Oklahoma)
 grocery.active.Oklahoma.sum <- summary(grocery.active.Oklahoma.lm)
 #parks
@@ -2503,7 +2546,7 @@ transit.active.Oklahoma.sum <- summary(transit.active.Oklahoma.lm)
 workplace.active.Oklahoma.lm <- lm(active.avg ~ workplace.avg, mobility.active.Oklahoma)
 workplace.active.Oklahoma.sum <- summary(workplace.active.Oklahoma.lm)
 
-#residential 
+#residential
 residential.active.Oklahoma.lm <- lm(active.avg ~ residential.avg, mobility.active.Oklahoma)
 residential.active.Oklahoma.sum <- summary(residential.active.Oklahoma.lm)
 
@@ -2587,7 +2630,7 @@ residential.active.Iowa.sum <- summary(residential.active.Iowa.lm)
 
 ```
 
-checking outliers for SVI data 
+checking outliers for SVI data
 ```{r}
 svi.pci.graph <- ggplot(data = svi.mortality,
                         aes(x = per.capita)) +
@@ -2595,18 +2638,18 @@ svi.pci.graph <- ggplot(data = svi.mortality,
                  fill = "lightblue",
                  color = "black",
                  bins = 25) +
-    theme_minimal() + 
+    theme_minimal() +
   theme(plot.title = element_text(hjust = 0.5,
-                                  face = "bold", 
+                                  face = "bold",
                                   size = 16),
         axis.title = element_text(size = 12),
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
         axis.line = element_line()) +
-  labs(title = "Distribution per capita incomes") + 
-  xlab("Per capita income ($)") + 
+  labs(title = "Distribution per capita incomes") +
+  xlab("Per capita income ($)") +
   ylab("Frequency")
-svi.pci.graph 
+svi.pci.graph
 
 
 pci.log.graph <- ggplot(data=svi.mortality,aes(x=pci.log,y=mortality.avg)) +
@@ -2614,35 +2657,35 @@ pci.log.graph <- ggplot(data=svi.mortality,aes(x=pci.log,y=mortality.avg)) +
   geom_smooth(method = "lm",
               formula = y ~ x,
               col = "dark green") +
-  labs(x = "log per capita income", 
-       y = "COVID-19 mortality rates") + 
+  labs(x = "log per capita income",
+       y = "COVID-19 mortality rates") +
   annotate('text', x = 4.4, y = 6, label = 'p = ') +
   annotate('text', x = 4.437, y = 6, label = pci.log.mortality.sum$coefficients[2,4]) +
   geom_label(aes(label = STATE), check_overlap = TRUE) +
   theme_bw() +
-  ggtitle("linear regression of log pci on mortality rates") 
+  ggtitle("linear regression of log pci on mortality rates")
 
 uninsured.graph <- ggplot(data=svi.mortality,aes(x=uninsured.rate,y=mortality.avg)) +
 #  geom_jitter(colour="dark green", alpha=0.7) +
   geom_smooth(method = "lm",
               formula = y ~ x,
               col = "dark green") +
-  labs(x = "uninsured rate", 
-       y = "COVID-19 mortality rates") + 
+  labs(x = "uninsured rate",
+       y = "COVID-19 mortality rates") +
   annotate('text', x = 0.14, y = 6, label = 'p = ') +
   annotate('text', x = 0.16, y = 6, label = uninsured.mortality.sum$coefficients[2,4]) +
   geom_text(aes(label = STATE), check_overlap = TRUE) +
   theme_bw() +
   ggtitle("linear regression of uninsured rate on mortality rates")
-  
 
-pop.graph <- ggplot(data=svi.mortality.pop,aes(x=population.density,y=mortality.avg)) +
+
+pop.graph <- ggplot(data=svi.mortality.pop,aes(x=pop.log,y=mortality.avg)) +
 #  geom_jitter(colour="dark green", alpha=0.7) +
   geom_smooth(method = "lm",
               formula = y ~ x,
               col = "dark green") +
-  labs(x = "population density", 
-       y = "COVID-19 mortality rates") + 
+  labs(x = "population density",
+       y = "COVID-19 mortality rates") +
   annotate('text', x = 0, y = 8, label = 'p = ') +
   annotate('text', x = 180, y = 8, label = pop.mortality.sum$coefficients[2,4]) +
   geom_text(aes(label = STATE), check_overlap = TRUE) +
@@ -2650,7 +2693,7 @@ pop.graph <- ggplot(data=svi.mortality.pop,aes(x=population.density,y=mortality.
   ggtitle("linear regression of population density on mortality rates")
 
 
-pci.log.graph 
+pci.log.graph
 uninsured.graph
 pop.graph
 
@@ -2666,71 +2709,87 @@ svi.pop.top.states = svi.pop.top$STATE
 
 
 svi.pop.top.states
-#  [1] "New Jersey"    "Rhode Island"  "Massachusetts" "Connecticut"   "Maryland"      "Delaware"      "New York"      "Florida"       "Pennsylvania" 
+#  [1] "New Jersey"    "Rhode Island"  "Massachusetts" "Connecticut"   "Maryland"      "Delaware"      "New York"      "Florida"       "Pennsylvania"
 # [10] "Ohio"  
+
+
 
 
 mobility.active.top <- mobility.active %>%
   filter(state %in% svi.pop.top.states) %>%
   group_by(state, biweek) %>%
   summarise(active.mean = active.avg,
-            mobility.mean = mean(c(retail.recreation.avg, grocery.pharmacy.avg, parks.avg, transit.avg, workplace.avg, residential.avg)),
-            retail.recreation.mean = mean(retail.recreation.avg),
-            grocery.pharmacy.mean = mean(grocery.pharmacy.avg), 
-            parks.mean = mean(parks.avg), 
-            transit.mean = mean(transit.avg), 
-            workplace.mean = mean(workplace.avg), 
-            residential.mean = mean(residential.avg))
+            mobility.mean = mean(c(retail.recreation.avg, grocery.pharmacy.avg, parks.avg, transit.avg, workplace.avg, residential.avg), na.rm = TRUE),
+            retail.recreation.mean = mean(retail.recreation.avg, na.rm = TRUE),
+            grocery.pharmacy.mean = mean(grocery.pharmacy.avg, na.rm = TRUE),
+            parks.mean = mean(parks.avg, na.rm = TRUE),
+            transit.mean = mean(transit.avg, na.rm = TRUE),
+            workplace.mean = mean(workplace.avg, na.rm = TRUE),
+            residential.mean = mean(residential.avg, na.rm = TRUE)) %>%
+  group_by(biweek) %>%
+  summarise(mean.active = mean(active.mean),
+            mean.mobility = mean(mobility.mean, na.rm = TRUE) ,
+            mean.retail.recreation = mean(retail.recreation.mean, na.rm = TRUE),
+            mean.grocery.pharmacy = mean(grocery.pharmacy.mean, na.rm = TRUE),
+            mean.parks = mean(parks.mean, na.rm = TRUE),
+            mean.transit = mean(transit.mean, na.rm = TRUE),
+            mean.workplace = mean(workplace.mean, na.rm = TRUE),
+            mean.residenstial = mean(residential.mean, na.rm = TRUE))
 
-
-mobility.active.bottom <- mobility.active %>%
-  filter(state %in% svi.pop.bottom.states) %>%
-  group_by(state, biweek) %>%
-  summarise(active.mean = active.avg,
-            mobility.avg = mean(c(retail.recreation.avg, grocery.pharmacy.avg, parks.avg, transit.avg, workplace.avg, residential.avg)))
-
-
-mobility.active.top.lm <- lm(active.mean ~ mobility.mean, data = mobility.active.top)
+mobility.active.top.lm <- lm(mean.active ~ mean.mobility, data = mobility.active.top)
 mobility.active.top.res <- residuals(mobility.active.top.lm)
 
-# retial and recreation
-retail.mobility.top.lm <- lm(retail.recreation.mean ~ mobility.mean, data = mobility.active.top)
+# retail and recreation
+retail.mobility.top.lm <- lm(mean.retail.recreation ~ mean.mobility, data = mobility.active.top)
 retail.top.res <- residuals(retail.mobility.top.lm)
 # below is lm(residual ~ residual)
 retail.top.lm <- lm(mobility.active.top.res ~ retail.top.res)
-retail.top.sum <- summary(retail.lm)
+retail.top.sum <- summary(retail.top.lm)
+# r squared = 0.891 ***
 
 # grocery and pharmacy
-grocery.pharmacy.mobility.top.lm <- lm(grocery.pharmacy.mean ~ mobility.mean, data = mobility.active.top)
+grocery.pharmacy.mobility.top.lm <- lm(mean.grocery.pharmacy ~ mean.mobility, data = mobility.active.top)
 grocery.top.res <- residuals(grocery.pharmacy.mobility.top.lm)
 # below is lm(residual ~ residual)
 grocery.top.lm <- lm(mobility.active.top.res ~ grocery.top.res)
 grocery.top.sum <- summary(grocery.top.lm)
-
+# r squared = 0.04013 not significant 
 
 # parks  
-parks.mobility.top.lm <- lm(parks.mean ~ mobility.mean, data = mobility.active.top)
+parks.mobility.top.lm <- lm(mean.parks ~ mean.mobility, data = mobility.active.top)
 parks.top.res <- residuals(parks.mobility.top.lm)
 # below is lm(residual ~ residual)
 parks.top.lm <- lm(mobility.active.top.res ~ parks.top.res)
 parks.top.sum <- summary(parks.top.lm)
+# r squared = 0.7102 *** 
 
-# transit 
+# transit
+transit.mobility.top.lm <- lm(mean.transit ~ mean.mobility, data = mobility.active.top)
+transit.top.res <- residuals(transit.mobility.top.lm)
+# below is lm(residual ~ residual)
+transit.top.lm <- lm(mobility.active.top.res ~ transit.top.res)
+transit.top.sum <- summary(transit.top.lm)
+# r squared = 0.7711 ***
 
-# workplace 
+# workplace
+workplace.mobility.top.lm <- lm(mean.workplace ~ mean.mobility, data = mobility.active.top)
+workplace.top.res <- residuals(workplace.mobility.top.lm)
+# below is lm(residual ~ residual)
+workplace.top.lm <- lm(mobility.active.top.res ~ workplace.top.res)
+workplace.top.sum <- summary(workplace.top.lm)
+# r squraed = 0.8148 ***
 
-# residential 
-workplace.active.top <- lm(workplace.mean ~ mobility.mean, data = mobility.active.top)
-workplace.res <- residuals(workplace.active.top)
-
-workplace.sum <- summary(lm(workplace.res ~ residuals(retail.active.top)))
-
-
-
+# residential
+residential.mobility.top.lm <- lm(mean.residenstial ~ mean.mobility, data = mobility.active.top)
+residential.top.res <- residuals(residential.mobility.top.lm)
+# below is lm(residual ~ residual)
+residential.top.lm <- lm(mobility.active.top.res ~ residential.top.res)
+residential.top.sum <- summary(residential.top.lm)
+# r squared = 0.9056 ***
 ```
 
 
-bottom states 
+bottom states
 ```{r}
 svi.pop.bottom <- svi.mortality.pop %>%
   slice_min(pop.log, n = svi.sig.crit)
@@ -2738,9 +2797,379 @@ svi.pop.bottom.states = svi.pop.bottom$STATE
 svi.pop.bottom.states
 
 #  [1] "Alaska"       "Wyoming"      "Montana"      "North Dakota" "South Dakota" "New Mexico"   "Idaho"        "Nebraska"     "Nevada"      
-# [10] "Kansas" 
+# [10] "Kansas"
+
+mobility.active.bottom <- mobility.active %>%
+  filter(state %in% svi.pop.bottom.states) %>%
+  group_by(state, biweek) %>%
+  summarise(active.mean = active.avg,
+            mobility.mean = mean(c(retail.recreation.avg, grocery.pharmacy.avg, parks.avg, transit.avg, workplace.avg, residential.avg), na.rm = TRUE),
+            retail.recreation.mean = mean(retail.recreation.avg, na.rm = TRUE),
+            grocery.pharmacy.mean = mean(grocery.pharmacy.avg, na.rm = TRUE),
+            parks.mean = mean(parks.avg, na.rm = TRUE),
+            transit.mean = mean(transit.avg, na.rm = TRUE),
+            workplace.mean = mean(workplace.avg, na.rm = TRUE),
+            residential.mean = mean(residential.avg, na.rm = TRUE)) %>%
+  group_by(biweek) %>%
+  summarise(mean.active = mean(active.mean),
+            mean.mobility = mean(mobility.mean, na.rm = TRUE) ,
+            mean.retail.recreation = mean(retail.recreation.mean, na.rm = TRUE),
+            mean.grocery.pharmacy = mean(grocery.pharmacy.mean, na.rm = TRUE),
+            mean.parks = mean(parks.mean, na.rm = TRUE),
+            mean.transit = mean(transit.mean, na.rm = TRUE),
+            mean.workplace = mean(workplace.mean, na.rm = TRUE),
+            mean.residenstial = mean(residential.mean, na.rm = TRUE))
+
+
+mobility.active.bottom.lm <- lm(mean.active ~ mean.mobility, data = mobility.active.bottom)
+mobility.active.bottom.res <- residuals(mobility.active.bottom.lm)
+
+# retail and recreation
+retail.mobility.bottom.lm <- lm(mean.retail.recreation ~ mean.mobility, data = mobility.active.bottom)
+retail.bottom.res <- residuals(retail.mobility.bottom.lm)
+# below is lm(residual ~ residual)
+retail.bottom.lm <- lm(mobility.active.bottom.res ~ retail.bottom.res)
+retail.bottom.sum <- summary(retail.bottom.lm)
+# r squared = 0.4398 ***
+
+# grocery and pharmacy
+grocery.pharmacy.mobility.bottom.lm <- lm(mean.grocery.pharmacy ~ mean.mobility, data = mobility.active.bottom)
+grocery.bottom.res <- residuals(grocery.pharmacy.mobility.bottom.lm)
+# below is lm(residual ~ residual)
+grocery.bottom.lm <- lm(mobility.active.bottom.res ~ grocery.bottom.res)
+grocery.bottom.sum <- summary(grocery.bottom.lm)
+# r squared =  0.1935 not significant 
+
+# parks
+parks.mobility.bottom.lm <- lm(mean.parks ~ mean.mobility, data = mobility.active.bottom)
+# below is lm(residual ~ residual)
+parks.bottom.res <- residuals(parks.mobility.bottom.lm)
+parks.bottom.lm <- lm(mobility.active.bottom.res ~ parks.bottom.res)
+parks.bottom.sum <- summary(parks.bottom.lm)
+# r squared = 0.5391 ** 
+
+# transit
+transit.mobility.bottom.lm <- lm(mean.transit ~ mean.mobility, data = mobility.active.bottom)
+# below is lm(residual ~ residual)
+transit.bottom.res <- residuals(transit.mobility.bottom.lm)
+transit.bottom.lm <- lm(mobility.active.bottom.res ~ transit.bottom.res)
+transit.bottom.sum <- summary(transit.bottom.lm)
+# r squared = 0.6077 **
+
+# workplace
+workplace.mobility.bottom.lm <- lm(mean.workplace ~ mean.mobility, data = mobility.active.bottom)
+workplace.bottom.res <- residuals(workplace.mobility.bottom.lm)
+# below is lm(residual ~ residual)
+workplace.bottom.lm <- lm(mobility.active.bottom.res ~ workplace.bottom.res)
+workplace.bottom.sum <- summary(workplace.bottom.lm)
+# r squared =  0.6329 ***
+
+
+# residential
+residential.mobility.bottom.lm <- lm(mean.residenstial ~ mean.mobility, data = mobility.active.bottom)
+residential.bottom.res <- residuals(residential.mobility.bottom.lm)
+# below is lm(residual ~ residual)
+residential.bottom.lm <- lm(mobility.active.bottom.res ~ residential.bottom.res)
+residential.bottom.sum <- summary(residential.bottom.lm)
+# r squared = 0.658 ***
+residential.bottom.df <- data.frame(mobility.active.bottom.res, residential.bottom.res)
+
+
+residential.bottom.graph <- ggplot(data=residential.bottom.df,aes(x=residential.bottom.res,y=mobility.active.bottom.res)) +
+  geom_jitter(colour="dark green", alpha=0.7) +
+  geom_smooth(method = "lm",
+              formula = y ~ x,
+              col = "dark green") +
+  labs(x = "residuals of mobility mean ~ residential mean",
+       y = "residuals of active ~ mobility mean") +
+  theme_bw() +
+  ggtitle("linear regression of population density on mortality rates")
+# when residual of residential increase, the residual of active cases to average mobility decreases 
+
+
+residential.bottom.graph <- ggplot(data=mobility.active.bottom,aes(x=mean.mobility,y=mean.active)) +
+  geom_jitter(colour="dark green", alpha=0.7) +
+  geom_smooth(method = "lm",
+              formula = y ~ x,
+              col = "dark green") +
+  labs(x = "mobility.mean",
+       y = "active.mean") +
+  theme_bw() +
+  ggtitle("linear regression of population density on mortality rates")
+
+mobility.active.graph.bottom <- ggplot(data=mobility.active.bottom,aes(x=mean.mobility, y=mean.active)) +
+#  geom_jitter(colour="dark green", alpha=0.7) +
+  geom_smooth(method = "lm",
+              formula = y ~ x,
+              col = "dark green") +
+  labs(x = "average of mobility activity",
+       y = "average of COVID-19 active cases") +
+  theme_bw() +
+  ggtitle("linear regression of mobility mean on COVID-19 active cases mean")
+
+mobility.active.graph.bottom
+```
+
+```{r}
+retail.active.Rsquare <- c()
+grocery.active.Rsquare <- c()
+parks.active.Rsquare <- c()
+transit.active.Rsquare <- c()
+workplace.active.Rsquare <- c()
+residential.active.Rsquare <- c()
+
+retail.active.F <- c()
+grocery.active.F <- c()
+parks.active.F <- c()
+transit.active.F <- c()
+workplace.active.F <- c()
+residential.active.F <- c()
+
+retail.active.pval <- c()
+grocery.active.pval <- c()
+parks.active.pval <- c()
+transit.active.pval <- c()
+workplace.active.pval <- c()
+residential.active.pval <- c()
+
+# svi.pop.top.states
+#  [1] "New Jersey"    "Rhode Island"  "Massachusetts" "Connecticut"   "Maryland"      "Delaware"      "New York"      "Florida"       "Pennsylvania"
+# [10] "Ohio" 
+
+# svi.pop.bottom.states
+#  [1] "Alaska"       "Wyoming"      "Montana"      "North Dakota" "South Dakota" "New Mexico"   "Idaho"        "Nebraska"     "Nevada"      
+# [10] "Kansas"
+
+mobility.active.all <- mobility.active %>%
+  group_by(state, biweek) %>%
+  summarise(mean.active = active.avg,
+            mean.mobility = mean(c(retail.recreation.avg, grocery.pharmacy.avg, parks.avg, transit.avg, workplace.avg, residential.avg), na.rm = TRUE),
+            mean.retail.recreation = mean(retail.recreation.avg, na.rm = TRUE),
+            mean.grocery.pharmacy = mean(grocery.pharmacy.avg, na.rm = TRUE),
+            mean.parks = mean(parks.avg, na.rm = TRUE),
+            mean.transit = mean(transit.avg, na.rm = TRUE),
+            mean.workplace = mean(workplace.avg, na.rm = TRUE),
+            mean.residential = mean(residential.avg, na.rm = TRUE))
+
+for (s in svi.pop.top.states) {
+  mobility.active.s <- mobility.active.all %>% 
+    filter(state == s)
+  
+  mobility.active.s.lm <- lm(mean.active ~ mean.mobility, data = mobility.active.s)
+  mobility.active.s.res <- residuals(mobility.active.s.lm)
+  
+  # retail and recreation
+  retail.mobility.s.lm <- lm(mean.retail.recreation ~ mean.mobility, data = mobility.active.s)
+  retail.s.res <- residuals(retail.mobility.s.lm)
+  # below is lm(residual ~ residual)
+  retail.s.lm <- lm(mobility.active.s.res ~ retail.s.res)
+  retail.s.sum <- summary(retail.s.lm)
+  # r squared = 0.4398 ***
+  
+  # grocery and pharmacy
+  grocery.pharmacy.mobility.s.lm <- lm(mean.grocery.pharmacy ~ mean.mobility, data = mobility.active.s)
+  grocery.s.res <- residuals(grocery.pharmacy.mobility.s.lm)
+  # below is lm(residual ~ residual)
+  grocery.s.lm <- lm(mobility.active.s.res ~ grocery.s.res)
+  grocery.s.sum <- summary(grocery.s.lm)
+  # r squared =  0.1935 not significant 
+  
+  # parks
+  parks.mobility.s.lm <- lm(mean.parks ~ mean.mobility, na.action=na.exclude, data = mobility.active.s)
+  # below is lm(residual ~ residual)
+  parks.s.res <- residuals(parks.mobility.s.lm)
+  parks.s.lm <- lm(mobility.active.s.res ~ parks.s.res)
+  parks.s.sum <- summary(parks.s.lm)
+  # r squared = 0.5391 ** 
+  
+  # transit
+  transit.mobility.s.lm <- lm(mean.transit ~ mean.mobility, data = mobility.active.s)
+  # below is lm(residual ~ residual)
+  transit.s.res <- residuals(transit.mobility.s.lm)
+  transit.s.lm <- lm(mobility.active.s.res ~ transit.s.res)
+  transit.s.sum <- summary(transit.s.lm)
+  # r squared = 0.6077 **
+  
+  # workplace
+  workplace.mobility.s.lm <- lm(mean.workplace ~ mean.mobility, data = mobility.active.s)
+  workplace.s.res <- residuals(workplace.mobility.s.lm)
+  # below is lm(residual ~ residual)
+  workplace.s.lm <- lm(mobility.active.s.res ~ workplace.s.res)
+  workplace.s.sum <- summary(workplace.s.lm)
+  # r squared =  0.6329 ***
+
+  # residential
+  residential.mobility.s.lm <- lm(mean.residential ~ mean.mobility, data = mobility.active.s)
+  residential.s.res <- residuals(residential.mobility.s.lm)
+  # below is lm(residual ~ residual)
+  residential.s.lm <- lm(mobility.active.s.res ~ residential.s.res)
+  residential.s.sum <- summary(residential.s.lm)
+  # r squared = 0.658 ***
+  # residential.s.df <- data.frame(mobility.active.s.res, residential.s.res)
+
+  # r square
+  retail.active.Rsquare <- append(retail.active.Rsquare, retail.s.sum$r.squared)
+  grocery.active.Rsquare <- append(grocery.active.Rsquare, grocery.s.sum$r.squared)
+  parks.active.Rsquare <- append(parks.active.Rsquare, parks.s.sum$r.squared)
+  transit.active.Rsquare <- append(transit.active.Rsquare, transit.s.sum$r.squared)
+  workplace.active.Rsquare <- append(workplace.active.Rsquare, workplace.s.sum$r.squared)
+  residential.active.Rsquare <- append(residential.active.Rsquare, residential.s.sum$r.squared)
+
+  # F value
+  # retail.active.F <- append(retail.active.F, retail.s.sum$fstatistic)
+  # grocery.active.F <- append(grocery.active.F, grocery.s.sum$fstatistic)
+  # parks.active.F <- append(parks.active.F, parks.s.sum$fstatistic)
+  # transit.active.F <- append(transit.active.F, transit.s.sum$fstatistic)
+  # workplace.active.F <- append(workplace.active.F, workplace.s.sum$fstatistic)
+  # residential.active.F <- append(residential.active.F, residential.s.sum$fstatistic)
+
+  # p value
+  retail.active.pval <- append(retail.active.pval, retail.s.sum$coefficients[2,4])
+  grocery.active.pval <- append(grocery.active.pval, grocery.s.sum$coefficients[2,4])
+  parks.active.pval <- append(parks.active.pval, parks.s.sum$coefficients[2,4])
+  transit.active.pval <- append(transit.active.pval, transit.s.sum$coefficients[2,4])
+  workplace.active.pval <- append(workplace.active.pval, workplace.s.sum$coefficients[2,4])
+  residential.active.pval <- append(residential.active.pval, residential.s.sum$coefficients[2,4])
+
+  # mse
+  # retail.active.mse <- append(retail.active.mse, mean(retail.s.sum$residuals ^ 2))
+  # grocery.active.mse <- append(grocery.active.mse, mean(grocery.s.sum$residuals ^ 2))
+  # parks.active.mse <- append(parks.active.mse, mean(parks.s.sum$r.squared ^ 2))
+  # transit.active.mse <- append(transit.active.mse, mean(transit.s.sum$r.squared ^ 2))
+  # workplace.active.mse <- append(workplace.active.mse, mean(workplace.s.sum$r.squared ^ 2))
+  # residential.active.mse <- append(residential.active.mse, mean(residential.s.sum$r.squared ^ 2))
+}
+
+for (s in svi.pop.bottom.states) {
+  mobility.active.s <- mobility.active.all %>% 
+    filter(state == s)
+  
+  mobility.active.s.lm <- lm(mean.active ~ mean.mobility, data = mobility.active.s)
+  mobility.active.s.res <- residuals(mobility.active.s.lm)
+  
+  # retail and recreation
+  retail.mobility.s.lm <- lm(mean.retail.recreation ~ mean.mobility, data = mobility.active.s)
+  retail.s.res <- residuals(retail.mobility.s.lm)
+  # below is lm(residual ~ residual)
+  retail.s.lm <- lm(mobility.active.s.res ~ retail.s.res)
+  retail.s.sum <- summary(retail.s.lm)
+  # r squared = 0.4398 ***
+  
+  # grocery and pharmacy
+  grocery.pharmacy.mobility.s.lm <- lm(mean.grocery.pharmacy ~ mean.mobility, data = mobility.active.s)
+  grocery.s.res <- residuals(grocery.pharmacy.mobility.s.lm)
+  # below is lm(residual ~ residual)
+  grocery.s.lm <- lm(mobility.active.s.res ~ grocery.s.res)
+  grocery.s.sum <- summary(grocery.s.lm)
+  # r squared =  0.1935 not significant 
+  
+  # parks
+  parks.mobility.s.lm <- lm(mean.parks ~ mean.mobility, na.action=na.exclude, data = mobility.active.s)
+  # below is lm(residual ~ residual)
+  parks.s.res <- residuals(parks.mobility.s.lm)
+  parks.s.lm <- lm(mobility.active.s.res ~ parks.s.res)
+  parks.s.sum <- summary(parks.s.lm)
+  # r squared = 0.5391 ** 
+  
+  # transit
+  transit.mobility.s.lm <- lm(mean.transit ~ mean.mobility, na.action=na.exclude, data = mobility.active.s)
+  # below is lm(residual ~ residual)
+  transit.s.res <- residuals(transit.mobility.s.lm)
+  transit.s.lm <- lm(mobility.active.s.res ~ transit.s.res)
+  transit.s.sum <- summary(transit.s.lm)
+  # r squared = 0.6077 **
+  
+  # workplace
+  workplace.mobility.s.lm <- lm(mean.workplace ~ mean.mobility, data = mobility.active.s)
+  workplace.s.res <- residuals(workplace.mobility.s.lm)
+  # below is lm(residual ~ residual)
+  workplace.s.lm <- lm(mobility.active.s.res ~ workplace.s.res)
+  workplace.s.sum <- summary(workplace.s.lm)
+  # r squared =  0.6329 ***
+
+  # residential
+  residential.mobility.s.lm <- lm(mean.residential ~ mean.mobility, data = mobility.active.s)
+  residential.s.res <- residuals(residential.mobility.s.lm)
+  # below is lm(residual ~ residual)
+  residential.s.lm <- lm(mobility.active.s.res ~ residential.s.res)
+  residential.s.sum <- summary(residential.s.lm)
+  # r squared = 0.658 ***
+  # residential.s.df <- data.frame(mobility.active.s.res, residential.s.res)
+
+  # r square
+  retail.active.Rsquare <- append(retail.active.Rsquare, retail.s.sum$r.squared)
+  grocery.active.Rsquare <- append(grocery.active.Rsquare, grocery.s.sum$r.squared)
+  parks.active.Rsquare <- append(parks.active.Rsquare, parks.s.sum$r.squared)
+  transit.active.Rsquare <- append(transit.active.Rsquare, transit.s.sum$r.squared)
+  workplace.active.Rsquare <- append(workplace.active.Rsquare, workplace.s.sum$r.squared)
+  residential.active.Rsquare <- append(residential.active.Rsquare, residential.s.sum$r.squared)
+
+  # F value
+  # retail.active.F <- append(retail.active.F, retail.s.sum$fstatistic)
+  # grocery.active.F <- append(grocery.active.F, grocery.s.sum$fstatistic)
+  # parks.active.F <- append(parks.active.F, parks.s.sum$fstatistic)
+  # transit.active.F <- append(transit.active.F, transit.s.sum$fstatistic)
+  # workplace.active.F <- append(workplace.active.F, workplace.s.sum$fstatistic)
+  # residential.active.F <- append(residential.active.F, residential.s.sum$fstatistic)
+
+  # p value
+  retail.active.pval <- append(retail.active.pval, retail.s.sum$coefficients[2,4])
+  grocery.active.pval <- append(grocery.active.pval, grocery.s.sum$coefficients[2,4])
+  parks.active.pval <- append(parks.active.pval, parks.s.sum$coefficients[2,4])
+  transit.active.pval <- append(transit.active.pval, transit.s.sum$coefficients[2,4])
+  workplace.active.pval <- append(workplace.active.pval, workplace.s.sum$coefficients[2,4])
+  residential.active.pval <- append(residential.active.pval, residential.s.sum$coefficients[2,4])
+
+  # mse
+  # retail.active.mse <- append(retail.active.mse, mean(retail.s.sum$residuals ^ 2))
+  # grocery.active.mse <- append(grocery.active.mse, mean(grocery.s.sum$residuals ^ 2))
+  # parks.active.mse <- append(parks.active.mse, mean(parks.s.sum$r.squared ^ 2))
+  # transit.active.mse <- append(transit.active.mse, mean(transit.s.sum$r.squared ^ 2))
+  # workplace.active.mse <- append(workplace.active.mse, mean(workplace.s.sum$r.squared ^ 2))
+  # residential.active.mse <- append(residential.active.mse, mean(residential.s.sum$r.squared ^ 2))
+}
+
+# tmp <- summary(lm(active.avg ~ retail.recreation.avg, mobility.active.Iowa))
+# tmp$coefficients[2,4]
+rsquares <- data.frame(state = c(svi.pop.top.states, svi.pop.bottom.states), category = c(rep('Top', svi.sig.crit), rep('Bottom', svi.sig.crit)), 
+                       retail.Rsquare = retail.active.Rsquare, grocery.Rsquare = grocery.active.Rsquare,
+                       parks.Rsquare = parks.active.Rsquare, transit.Rsquare = transit.active.Rsquare,
+                       workplace.Rsquare = workplace.active.Rsquare, residential.Rsquare = residential.active.Rsquare)
+
+# fstatistics <- data.frame(state = US.states, retail.F = retail.active.F, grocery.F = grocery.active.F,
+#                           parks.F = parks.active.F, transit.F = transit.active.F,
+#                           workplace.F = workplace.active.F, residential.F = residential.active.F)
+
+pvals <- data.frame(state = c(svi.pop.top.states, svi.pop.bottom.states), category = c(rep('Top', svi.sig.crit), rep('Bottom', svi.sig.crit)), 
+                    retail.pval = retail.active.pval, grocery.pval = grocery.active.pval,
+                    parks.pval = parks.active.pval, transit.pval = transit.active.pval,
+                    workplace.pval = workplace.active.pval, residential.pval = residential.active.pval)
+
+# mses <- data.frame(state = US.states, retail.mse = retail.active.mse, grocery.mse = grocery.active.mse,
+#                    parks.mse = parks.active.mse, transit.mse = transit.active.mse,
+#                    workplace.mse = workplace.active.mse, residential.mse = residential.active.mse)
+# c(rsquares, pvals)
 
 ```
+
+```{r}
+rsquares.top <- rsquares %>% filter(category == 'Top')
+rsquares.bottom <- rsquares %>% filter(category == 'Bottom')
+retail.t.sum <- t.test(rsquares.top$retail.Rsquare, rsquares.bottom$retail.Rsquare, var.equal = T)
+
+grocery.t.sum <- t.test(rsquares.top$grocery.Rsquare, rsquares.bottom$grocery.Rsquare, var.equal = T)
+
+parks.t.sum <- t.test(rsquares.top$parks.Rsquare, rsquares.bottom$parks.Rsquare, var.equal = T)
+
+transit.t.sum <- t.test(rsquares.top$transit.Rsquare, rsquares.bottom$transit.Rsquare, var.equal = T)
+
+workplace.t.sum <- t.test(rsquares.top$workplace.Rsquare, rsquares.bottom$workplace.Rsquare, var.equal = T)
+
+residential.t.sum <- t.test(rsquares.top$residential.Rsquare, rsquares.bottom$residential.Rsquare, var.equal = T)
+
+anova(lm(data = rsquares, grocery.Rsquare ~ category))
+```
+
 
 # Other stuff
 ```{r}
@@ -2786,22 +3215,22 @@ for (s in US.states) {
 
   retail.active.state.lm <- lm(active.avg ~ retail.recreation.avg, mobility.active.state)
   retail.active.state.sum <- summary(retail.active.state.lm)
-  
+
   grocery.active.state.lm <- lm(active.avg ~ grocery.pharmacy.avg, mobility.active.state)
   grocery.active.state.sum <- summary(grocery.active.state.lm)
-  
+
   parks.active.state.lm <- lm(active.avg ~ parks.avg, mobility.active.state)
   parks.active.state.sum <- summary(parks.active.state.lm)
-  
+
   transit.active.state.lm <- lm(active.avg ~ transit.avg, mobility.active.state)
   transit.active.state.sum <- summary(transit.active.state.lm)
-  
+
   workplace.active.state.lm <- lm(active.avg ~ workplace.avg, mobility.active.state)
   workplace.active.state.sum <- summary(workplace.active.state.lm)
-  
+
   residential.active.state.lm <- lm(active.avg ~ residential.avg, mobility.active.state)
   residential.active.state.sum <- summary(residential.active.state.lm)
-  
+
   # r square
   retail.active.Rsquare <- append(retail.active.Rsquare, retail.active.state.sum$r.squared)
   grocery.active.Rsquare <- append(grocery.active.Rsquare, grocery.active.state.sum$r.squared)
@@ -2809,7 +3238,7 @@ for (s in US.states) {
   transit.active.Rsquare <- append(transit.active.Rsquare, transit.active.state.sum$r.squared)
   workplace.active.Rsquare <- append(workplace.active.Rsquare, workplace.active.state.sum$r.squared)
   residential.active.Rsquare <- append(residential.active.Rsquare, residential.active.state.sum$r.squared)
-  
+
   # F value
   retail.active.F <- append(retail.active.F, retail.active.state.sum$fstatistic)
   grocery.active.F <- append(grocery.active.F, grocery.active.state.sum$fstatistic)
@@ -2817,7 +3246,7 @@ for (s in US.states) {
   transit.active.F <- append(transit.active.F, transit.active.state.sum$fstatistic)
   workplace.active.F <- append(workplace.active.F, workplace.active.state.sum$fstatistic)
   residential.active.F <- append(residential.active.F, residential.active.state.sum$fstatistic)
-  
+
   # p value
   retail.active.pval <- append(retail.active.pval, retail.active.state.sum$coefficients[2,4])
   grocery.active.pval <- append(grocery.active.pval, grocery.active.state.sum$coefficients[2,4])
@@ -2825,7 +3254,7 @@ for (s in US.states) {
   transit.active.pval <- append(transit.active.pval, transit.active.state.sum$coefficients[2,4])
   workplace.active.pval <- append(workplace.active.pval, workplace.active.state.sum$coefficients[2,4])
   residential.active.pval <- append(residential.active.pval, residential.active.state.sum$coefficients[2,4])
-  
+
   # mse
   retail.active.mse <- append(retail.active.mse, mean(retail.active.state.sum$residuals ^ 2))
   grocery.active.mse <- append(grocery.active.mse, mean(grocery.active.state.sum$residuals ^ 2))
@@ -2853,51 +3282,50 @@ mses <- data.frame(state = US.states, retail.mse = retail.active.mse, grocery.ms
                    parks.mse = parks.active.mse, transit.mse = transit.active.mse,
                    workplace.mse = workplace.active.mse, residential.mse = residential.active.mse)
 
-mobility.active
 ```
 
 
 ## plot US map
 ```{r}
 library(usmap)
-plot_usmap(data = rsquares, values = "retail.Rsquare", color = "red", labels = TRUE) + 
-  scale_fill_continuous(name = "R-square", label = scales::comma, 
-                        low = "pink", high = "red") + 
+plot_usmap(data = rsquares, values = "retail.Rsquare", color = "red", labels = TRUE) +
+  scale_fill_continuous(name = "R-square", label = scales::comma,
+                        low = "pink", high = "red") +
   ggtitle("Retail & Recreation") +
   theme(legend.position = "right")
 
-plot_usmap(data = rsquares, values = "grocery.Rsquare", color = "red", labels = TRUE) + 
-  scale_fill_continuous(name = "R-square", label = scales::comma, 
-                        low = "pink", high = "red") + 
+plot_usmap(data = rsquares, values = "grocery.Rsquare", color = "red", labels = TRUE) +
+  scale_fill_continuous(name = "R-square", label = scales::comma,
+                        low = "pink", high = "red") +
   ggtitle("Grocery") +
   theme(legend.position = "right")
 
-plot_usmap(data = rsquares, values = "parks.Rsquare", color = "red", labels = TRUE) + 
-  scale_fill_continuous(name = "R-square", label = scales::comma, 
-                        low = "pink", high = "red") + 
+plot_usmap(data = rsquares, values = "parks.Rsquare", color = "red", labels = TRUE) +
+  scale_fill_continuous(name = "R-square", label = scales::comma,
+                        low = "pink", high = "red") +
   ggtitle("Parks") +
   theme(legend.position = "right")
 
-plot_usmap(data = rsquares, values = "transit.Rsquare", color = "red", labels = TRUE) + 
-  scale_fill_continuous(name = "R-square", label = scales::comma, 
-                        low = "pink", high = "red") + 
+plot_usmap(data = rsquares, values = "transit.Rsquare", color = "red", labels = TRUE) +
+  scale_fill_continuous(name = "R-square", label = scales::comma,
+                        low = "pink", high = "red") +
   ggtitle("Transit") +
   theme(legend.position = "right")
 
-plot_usmap(data = rsquares, values = "workplace.Rsquare", color = "red", labels = TRUE) + 
-  scale_fill_continuous(name = "R-square", label = scales::comma, 
-                        low = "pink", high = "red") + 
+plot_usmap(data = rsquares, values = "workplace.Rsquare", color = "red", labels = TRUE) +
+  scale_fill_continuous(name = "R-square", label = scales::comma,
+                        low = "pink", high = "red") +
   ggtitle("Workplace") +
   theme(legend.position = "right")
 
-plot_usmap(data = rsquares, values = "residential.Rsquare", color = "red", labels = TRUE) + 
-  scale_fill_continuous(name = "R-square", label = scales::comma, 
-                        low = "pink", high = "red") + 
+plot_usmap(data = rsquares, values = "residential.Rsquare", color = "red", labels = TRUE) +
+  scale_fill_continuous(name = "R-square", label = scales::comma,
+                        low = "pink", high = "red") +
   ggtitle("Residential") +
   theme(legend.position = "right")
 ```
 
-# Graphs 
+# Graphs
 ## Cumulative death cases
 ```{r}
 covid.death.midwest
@@ -2924,7 +3352,7 @@ covid.test.rate.west
 
 ## Positive testing rates
 ```{r}
-covid.incident.rate.midwest 
+covid.incident.rate.midwest
 covid.incident.rate.northeast
 covid.incident.rate.south
 covid.incident.rate.west
@@ -2972,13 +3400,13 @@ mobility.work.west
 
 ##  Mean Percent Change of Residential (%change of people staying at home)
 ```{r}
-mobility.res.midwest 
+mobility.res.midwest
 mobility.res.northeast
 mobility.res.south
 mobility.res.west
 ```
 
-## 2020 unemployment rate 
+## 2020 unemployment rate
 ```{r}
 unemploy.mw
 unemploy.ne
@@ -3041,4 +3469,3 @@ svi.pci.ne
 svi.pci.s
 svi.pci.w
 ```
-
