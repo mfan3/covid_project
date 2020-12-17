@@ -1,0 +1,973 @@
+---
+title: "covid project preliminary analysis"
+author: Hyojeong(Jenny) Yoo, Juanshu(Sky) Wu, Muqing Fan, Xiangyu(Alaric) Wei, Yuchen(Eva) Liu   
+output:
+  html_document:
+    toc: true
+    theme: united
+---
+
+```{r message=FALSE, warning=FALSE}
+# added a line to avoid redundant output
+knitr::opts_chunk$set(warning=FALSE, message=FALSE)
+```
+
+
+# Introduction
+In this file, we cleaned and explored our following datasets:   
+- **CDC Social Vulnerability Index/SVI (2018)**: https://www.atsdr.cdc.gov/placeandhealth/svi/data_documentation_download.html  
+- **JHU covid data (curren)**: https://github.com/CSSEGISandData/COVID-19  
+- **Google mobility reports (current)**: https://www.google.com/covid19/mobility/?hl=en  
+- **NCSL unemployment data**: https://www.ncsl.org/research/labor-and-employment/state-unemployment-update.aspx  
+The CDC data provided us with demographic information such as poverty rates, incomes, and minority rates.  The JHU COVID-19 date provided us with historical covid progressions. Mobility data provided us relevant information during the pandemic. All datasets are analyzed on state-level.
+
+# Data cleaning
+Importing packages
+```{r, message=FALSE}
+library(tidyverse)
+library(dplyr)     
+```
+
+## Data cleaning for CDC data
+
+selecting relevant indices (refer to codebook)
+```{r, message=FALSE}
+svi.raw <- read_csv("./datasets/SVI2018_US_COUNTY.csv")
+svi.raw %>%
+  select(STATE,
+         COUNTY,
+         FIPS,
+         AREA_SQMI,
+         E_TOTPOP,
+         E_HU,
+         E_HH,
+         E_POV,
+         E_UNEMP,
+         E_PCI,
+         E_NOHSDP,
+         E_AGE65,
+         E_DISABL,
+         E_MINRTY,
+         E_LIMENG,
+         E_MOBILE,
+         E_CROWD,
+         E_NOVEH,
+         E_GROUPQ,
+         E_UNINSUR) -> svi.data
+```
+
+-999 means unavailable data so replaced with 0
+```{r}
+svi.selected <- svi.data
+svi.selected[svi.selected == "-999"] <- NA
+# only New Mexico has NA responses for est. PCI, poverty, and unemployment
+```
+
+further cleaning svi data and calculating total amount of variables
+```{r, message=FALSE}
+svi.selected %>%
+  # PCI is per capita income
+  # calculating total income to derive statewide per capita income later
+  mutate(income = E_TOTPOP * E_PCI) %>%
+  group_by(STATE) %>%
+  summarise(area = sum(AREA_SQMI),
+            # aggregating to state level
+            total.population = sum(E_TOTPOP),
+            total.housing.units = sum(E_HU),
+            total.household = sum(E_HH),
+            total.poverty = sum(E_POV),
+            total.unemployed = sum(E_UNEMP),
+            total.income = sum(income),
+            # dividing into statewide per capita
+            total.capita = total.income/total.population,
+            total.no.HS = sum(E_NOHSDP),
+            total.age65 = sum(E_AGE65),
+            total.disabled = sum(E_DISABL),
+            total.minority = sum(E_MINRTY),
+            total.eng.proficiency = sum(E_LIMENG),
+            total.mobile = sum(E_MOBILE),
+            total.crowd = sum(E_CROWD),
+            total.no.vehicle = sum(E_NOVEH),
+            total.institutionalized = sum(E_GROUPQ),
+            total.uninsured = sum(E_UNINSUR)) -> svi.state
+
+```
+
+further cleaning svi data and calculating percentages of variables
+```{r}
+svi.state %>%
+  mutate(population.density = total.population/area,
+         poverty.rate = total.poverty/total.population,
+         unemployed.rate = total.unemployed/total.population,
+         per.capita = total.capita,
+         no.HS.rate = total.no.HS/total.population,
+         age65.rate = total.age65/total.population,
+         disabled.rate = total.disabled/total.population,
+         minority.rate = total.minority/total.population,
+         poor.English.rate = total.eng.proficiency/total.population,
+         mobile.home.rate = total.mobile/total.population,
+         household.crowd.rate = total.crowd/total.population,
+         no.vehicle.rate = total.no.vehicle/total.population,
+         institutionalized.rate = total.institutionalized/total.population,
+         uninsured.rate = total.uninsured/total.population) -> svi.state
+
+
+svi.state$STATE <- str_to_title(svi.state$STATE[1:51])
+
+# write.csv(svi.state,"C:\\Users\\fan\\Desktop\\preliminary cdc data version 1.csv")
+```
+
+## JHU COVID-19 data cleaning
+
+loading JHU covid death historical dateset
+```{r, message=FALSE}
+covid.death.raw <- read_csv("./datasets/csse_covid_19_time_series/time_series_covid19_deaths_US.csv")
+# glimpse(covid.death.raw)
+```
+
+cleaning JHU covid death historical dateset
+```{r, message=FALSE}
+# Exclude these states
+# American Samoa, Diamond Princess, Grand Princess, Guam, Northern Mariana Islands, Puerto Rico, Virgin Islands
+covid.death <- covid.death.raw %>%
+  select(-c(UID, iso2, iso3, code3, FIPS, Admin2, Country_Region, Lat, Long_, Combined_Key)) %>%
+  rename(state = Province_State, population = Population) %>%
+  group_by(state) %>% # Specify group indicator
+  summarise(across(everything(), sum)) %>% # Specify column
+  pivot_longer(-c(state, population),
+               names_to = "date",
+               values_to = "cumulative.death.cases") %>%
+  filter(state %in% c(state.name, "District of Columbia")) %>%
+  group_by(state) %>%
+  mutate(death.cases = cumulative.death.cases - lag(cumulative.death.cases),
+         date = as.Date(date, format = "%m/%d/%y"),
+         month = match(months(date), month.name),
+         death.cases = replace_na(death.cases, 0))
+
+# fix negative cumulative cases
+while (any(covid.death$death.cases < 0)) {
+  covid.death <- covid.death %>%
+    mutate(cumulative.death.cases = ifelse(cumulative.death.cases < lag(cumulative.death.cases),
+                                           lag(cumulative.death.cases), # if smaller than previous
+                                           cumulative.death.cases), # if not
+           cumulative.death.cases = replace_na(cumulative.death.cases, 0),
+           death.cases = cumulative.death.cases - lag(cumulative.death.cases),
+           death.cases = replace_na(death.cases, 0))
+}
+
+covid.deaths <- covid.death[c(1, 2, 3, 6, 4, 5)]
+```
+
+loading JHU covid confirmed historical dateset
+```{r, message=FALSE}
+covid.confirmed.raw <- read_csv("./datasets/csse_covid_19_time_series/time_series_covid19_confirmed_US.csv")
+# glimpse(covid.confirmed.raw)
+```
+
+cleaning JHU covid confirmed historical dateset
+```{r, message=FALSE}
+covid.confirmed <- covid.confirmed.raw %>%
+  select(-c(UID, iso2, iso3, code3, FIPS, Admin2, Country_Region, Lat, Long_, Combined_Key)) %>%
+  rename(state = Province_State) %>%
+  group_by(state) %>% # Specify group indicator
+  summarise(across(everything(), sum)) %>% # Specify column
+  pivot_longer(-c(state),
+               names_to = "date",
+               values_to = "cumulative.confirmed.cases") %>%
+  filter(state %in% c(state.name, "District of Columbia")) %>%
+  group_by(state) %>%
+  mutate(confirmed.cases = cumulative.confirmed.cases - lag(cumulative.confirmed.cases),
+         date = as.Date(date, format = "%m/%d/%y"),
+         confirmed.cases = replace_na(confirmed.cases, 0))
+
+# fix negative cumulative cases
+while (any(covid.confirmed$confirmed.cases < 0)) {
+  covid.confirmed <- covid.confirmed %>%
+    mutate(cumulative.confirmed.cases = ifelse(cumulative.confirmed.cases < lag(cumulative.confirmed.cases),
+                                         lag(cumulative.confirmed.cases), # if smaller than previous
+                                         cumulative.confirmed.cases), # if not
+           cumulative.confirmed.cases = replace_na(cumulative.confirmed.cases, 0),
+           confirmed.cases = cumulative.confirmed.cases - lag(cumulative.confirmed.cases),
+           confirmed.cases = replace_na(confirmed.cases, 0))
+}
+
+# combining death and confirmed into one dataset
+covid <- covid.deaths %>% inner_join(covid.confirmed, by = c("state","date"))
+```
+
+Looping through dates
+```{r, message=FALSE}
+dates <- format(seq(from = as.Date("2020/04/13"), to = as.Date("2020/10/24"), by = "day"), "%m-%d-%Y")
+date = "04-12-2020"
+reports.raw <- read_csv(paste("./datasets/csse_covid_19_daily_reports_us/", date, ".csv", sep = ""))
+report <- reports.raw %>%
+  select(-c(Country_Region, Last_Update, Lat, Long_, Confirmed, Deaths, FIPS, UID, ISO3)) %>%
+  rename(state = Province_State,
+         recovered.cases = Recovered,
+         active.cases = Active,
+         incident.rate = Incident_Rate, # positive results per 100,000 persons.
+         people.tested = People_Tested,
+         people.hospitalized = People_Hospitalized,
+         mortality.rate = Mortality_Rate,
+         testing.rate = Testing_Rate,
+         hospitalization.rate = Hospitalization_Rate) %>%
+  filter(state %in% c(state.name, "District of Columbia")) %>%
+  mutate(date = as.Date(date, format = "%m-%d-%y"),
+         # month = match(months(date), month.name),
+         incident.rate = incident.rate/1000,
+         # based on documentation (100k population)
+         testing.rate = testing.rate/1000) %>%
+    select(-c(people.hospitalized, hospitalization.rate, recovered.cases))
+
+
+
+for (date in dates){
+  reports.raw <- read_csv(paste("./datasets/csse_covid_19_daily_reports_us/", date, ".csv", sep = ""))
+  rpt <- reports.raw %>%
+    select(-c(Country_Region, Last_Update, Lat, Long_, Confirmed, Deaths, FIPS, UID, ISO3)) %>%
+    rename(state = Province_State,
+           recovered.cases = Recovered,
+           active.cases = Active,
+           incident.rate = Incident_Rate,
+           people.tested = People_Tested,
+           people.hospitalized = People_Hospitalized,
+           mortality.rate = Mortality_Rate,
+           testing.rate = Testing_Rate,
+           hospitalization.rate = Hospitalization_Rate) %>%
+    filter(state %in% c(state.name, "District of Columbia")) %>%
+    mutate(date = as.Date(date, format = "%m-%d-%y"),
+           # month = match(months(date), month.name),
+           incident.rate = incident.rate/1000,
+           testing.rate = testing.rate/1000) %>%
+    select(-c(people.hospitalized, hospitalization.rate, recovered.cases))
+  ### North Dekota has > 100% testing rate
+  report <- rbind(report, rpt)
+}
+
+reports <- report[c(1, 6, 7, 2, 3, 4, 5)][order(report$state, report$date),]
+
+covid.time.series <- covid %>%
+  full_join(reports, by = c("state","date")) %>%
+  mutate(active.rates = 100*(active.cases / population)) # added normalized active rates
+
+# covid.time.series <- reports
+# View(covid.time.series)
+#write.csv(covid.time.series, "E:/UCSD/2020-2021 Senior/PSYC 201 Project/CJHU Databse/covid time series version 1.csv")
+
+```
+
+
+## Cleaning Google mobility data
+
+Importing Google mobility dataset
+```{r}
+US_Region_2020_mobility <- read.csv( "./datasets/2020_US_Region_Mobility_Report.csv", header=T, na.strings=c("","NA"))
+```
+
+Cleaning mobility dataset
+```{r, message=FALSE}
+US_State_2020_mobility<- US_Region_2020_mobility %>% filter(sub_region_1 != "Null")
+US_State_2020_mobility_without_county <- US_State_2020_mobility %>% filter(iso_3166_2_code != "Null")
+
+# unique(US_State_2020_mobility_without_county$sub_region_1)
+US_State_2020_mobility_without_county$date <- as.Date(US_State_2020_mobility_without_county$date, "%m/%d/%y")
+
+
+month <- as.numeric(format(US_State_2020_mobility_without_county$date, "%m"))
+
+StateMonthMobility <- US_State_2020_mobility_without_county %>% mutate(month = month)
+
+
+StateMonthmobility <- StateMonthMobility %>% filter(retail_and_recreation_percent_change_from_baseline != "NA")%>%
+  filter(grocery_and_pharmacy_percent_change_from_baseline != "NA")%>%
+  filter(parks_percent_change_from_baseline != "NA")%>%
+  filter(transit_stations_percent_change_from_baseline!= "NA")%>%
+  filter(workplaces_percent_change_from_baseline!= "NA")%>%
+  filter(residential_percent_change_from_baseline!= "NA")
+
+StateMonthMobility2 <- StateMonthMobility %>%
+  group_by(month,sub_region_1) %>%
+  summarise(mean_retial_and_recreation_percent_change =
+              mean(retail_and_recreation_percent_change_from_baseline),
+            mean_grocery_and_pharmacy_percent_change =
+              mean(grocery_and_pharmacy_percent_change_from_baseline),
+            mean_parks_percent_change = mean(parks_percent_change_from_baseline),
+            mean_transit_stations_percent_change =
+              mean(transit_stations_percent_change_from_baseline),
+            mean_workplaces_percent_change =
+              mean(workplaces_percent_change_from_baseline),
+            mean_residential_percent_change=
+              mean(residential_percent_change_from_baseline))
+```
+
+
+# linear regression analysis
+
+Create SVI & mortality rates data frame with mortality rates calculated by cumulative death over cumulative confirmed
+```{r}
+svi.analysis <- svi.state %>%
+  select(c(STATE, poverty.rate, per.capita, no.HS.rate, age65.rate, disabled.rate, minority.rate, uninsured.rate)) %>%
+  mutate(state = STATE)
+
+covid.mortality <- covid.time.series %>%
+  filter(date == as.Date("2020-10-24")) %>%
+  mutate(mortality.avg = (cumulative.death.cases / cumulative.confirmed.cases)*100) %>%
+  select(state, mortality.avg)
+
+svi.mortality <- svi.analysis %>%
+  inner_join(covid.mortality, by = "state") %>%
+  select(-state)
+
+
+# log transformation of per capita income
+svi.mortality <- svi.mortality %>%
+  mutate(pci.log = log10(per.capita))
+
+
+# added population density
+svi.pop <- svi.state %>%
+  select(c(STATE, poverty.rate, per.capita, no.HS.rate, age65.rate, disabled.rate, minority.rate, uninsured.rate, population.density)) %>%
+  mutate(state = STATE)
+
+svi.mortality.pop <- svi.pop %>%
+  inner_join(covid.mortality, by = "state") %>%
+  select(-state)
+
+svi.mortality.pop <- svi.mortality.pop %>%
+  mutate(pci.log = log10(per.capita),
+         # log transform population density?
+         pop.log = log10(population.density)) %>%
+  select(-c(per.capita, population.density))
+```
+
+Create mobility & active rates data frame with active rates and binning into biweekly time frame 
+
+```{r}
+library(lubridate)
+# making changing rates of covid active data
+covid.active.diff <- covid.time.series %>%
+  select(c(state, date, active.rates)) %>%
+  group_by(state) %>%
+  mutate(active.changes = active.rates - lag(active.rates))
+
+# potential complications of different baselines for each day in the week
+# making changing rates of mobility data
+mobility.change <- StateMonthMobility %>%
+  mutate(check.parks = parks_percent_change_from_baseline,
+         check.transit = transit_stations_percent_change_from_baseline) %>%
+#  fill(parks_percent_change_from_baseline) %>%
+#  fill(transit_stations_percent_change_from_baseline) %>%
+  mutate(retail.recration.diff = retail_and_recreation_percent_change_from_baseline - lag(retail_and_recreation_percent_change_from_baseline),
+         grocery.pharmacy.diff = grocery_and_pharmacy_percent_change_from_baseline - lag(grocery_and_pharmacy_percent_change_from_baseline),
+         parks.diff = parks_percent_change_from_baseline - lag(parks_percent_change_from_baseline),
+         transit.diff = transit_stations_percent_change_from_baseline - lag(transit_stations_percent_change_from_baseline),
+         workplaces.diff = workplaces_percent_change_from_baseline - lag(workplaces_percent_change_from_baseline),
+         residential.diff = residential_percent_change_from_baseline - lag(residential_percent_change_from_baseline)) %>%
+  mutate(parks.diff = ifelse(is.na(check.parks), NA, parks.diff),
+         transit.diff = ifelse(is.na(check.transit), NA, transit.diff))
+
+
+sum(is.na(mobility.change$parks.diff))
+sum(is.na(mobility.change$parks_percent_change_from_baseline))
+
+# parks 440 NA
+# transit 135 NA
+
+
+mobility.active <- merge(mobility.change, covid.active.diff, by.x = c("sub_region_1", "date"), by.y = c("state", "date"))
+# active rates df
+mobility.active <- mobility.active %>%
+  mutate(state = sub_region_1) %>%
+  select(c(state, date, retail_and_recreation_percent_change_from_baseline, grocery_and_pharmacy_percent_change_from_baseline, parks_percent_change_from_baseline, transit_stations_percent_change_from_baseline, workplaces_percent_change_from_baseline, residential_percent_change_from_baseline, active.rates)) %>%
+  filter(date >= as.Date("2020-04-13")) %>%
+  mutate(month = months(date),
+         week = format(date, format = '%W'),
+         # the following code converts to biweekly
+         biweek = 14 * (as.numeric(date - min(date)) %/% 14) + min(date)) %>%
+  group_by(state, biweek) %>%
+  summarise(active.avg = mean(active.rates),
+            retail.recreation.avg = mean(retail_and_recreation_percent_change_from_baseline),
+            grocery.pharmacy.avg = mean(grocery_and_pharmacy_percent_change_from_baseline),
+            parks.avg = mean(parks_percent_change_from_baseline, na.rm=TRUE),
+            transit.avg = mean(transit_stations_percent_change_from_baseline, na.rm=TRUE),
+            workplace.avg = mean(workplaces_percent_change_from_baseline),
+            residential.avg = mean(residential_percent_change_from_baseline))
+
+# need to marking off public holidays
+# change to bi-weekly later
+# use SVI to pick out top n and bottom n states
+# within these states, do state by state mobility ~ covid lm
+
+```
+
+
+
+Linear regression for all states to check which SVI factor is significant  
+```{r}
+# poverty rates
+pov.mortality.lm <- lm(mortality.avg ~ poverty.rate, svi.mortality)
+pov.mortality.sum <- summary(pov.mortality.lm)
+ 
+# per capita 
+pci.mortality.lm <- lm(mortality.avg ~ per.capita, svi.mortality)
+pci.mortality.sum <- summary(pci.mortality.lm)
+ 
+#no HS rates 
+noHS.mortality.lm <- lm(mortality.avg ~ no.HS.rate, svi.mortality)
+noHS.mortality.sum <- summary(noHS.mortality.lm)
+ 
+#age 65/elderly rates 
+age.mortality.lm <- lm(mortality.avg ~ age65.rate, svi.mortality)
+age.mortality.sum <- summary(age.mortality.lm)
+ 
+#unisured rates
+uninsured.mortality.lm <- lm(mortality.avg ~ uninsured.rate, svi.mortality)
+uninsured.mortality.sum <- summary(uninsured.mortality.lm)
+ 
+#minority rates
+minority.mortality.lm <- lm(mortality.avg ~ minority.rate, svi.mortality)
+minority.mortality.sum <- summary(minority.mortality.lm)
+ 
+disabled.mortality.lm <- lm(mortality.avg ~ disabled.rate, svi.mortality)
+disabled.mortality.sum <- summary(disabled.mortality.lm)
+
+# population density
+pop.mortality.lm <- lm(mortality.avg ~ pop.log, svi.mortality.pop)
+pop.mortality.sum <- summary(pop.mortality.lm)
+```
+
+
+
+
+checking most significant SVI factor on COVID-19 mortality rates using r-squared table
+```{r}
+m0 <- lm(mortality.avg ~ 1, svi.mortality.pop)
+add1(m0, lm(mortality.avg ~ ., svi.mortality.pop))
+
+cnames <- colnames(svi.mortality.pop)
+cnames1 <- cnames[cnames != 'mortality.avg']
+col.rsq1 <- function(cname) summary(lm(as.formula(paste('mortality.avg ~', cname)), svi.mortality.pop))$r.squared
+rsqs1 <- map_dbl(cnames1, col.rsq1)
+svi.mortality.rsq <- tibble(cname = cnames1, rsq = rsqs1) %>% arrange(desc(rsq))
+svi.mortality.rsq
+cor.test(svi.mortality.pop$pop.log, svi.mortality.pop$pci.log)
+# could revisit if there is extra time
+
+m1 <- lm(mortality.avg ~ pop.log, svi.mortality.pop)
+summary(m1)
+```
+
+
+svi states to covid ~ active rates to select top five states
+```{r}
+svi.sigl.crit = 5
+
+svi.pop.sig.top <- svi.mortality.pop %>%
+  slice_max(pop.log, n = svi.sigl.crit)
+svi.pop.sig.top.states = svi.pop.sig.top$STATE
+# "New Jersey"    "Rhode Island"  "Massachusetts" "Connecticut"   "Maryland"    
+
+svi.pop.sig.bottom <- svi.mortality.pop %>%
+  slice_min(pop.log, n = svi.sigl.crit)
+svi.pop.sig.bottom.states = svi.pop.sig.bottom$STATE
+# "Alaska"       "Wyoming"      "Montana"      "North Dakota" "South Dakota"
+```
+
+
+checking outliers for SVI data
+```{r}
+pop.graph <- ggplot(data=svi.mortality.pop,aes(x=pop.log,y=mortality.avg)) +
+#  geom_jitter(colour="dark green", alpha=0.7) +
+  geom_smooth(method = "lm",
+              formula = y ~ x,
+              col = "dark green") +
+  labs(x = "population density",
+       y = "COVID-19 mortality rates") +
+  annotate('text', x = 0, y = 8, label = 'p = ') +
+  annotate('text', x = 180, y = 8, label = pop.mortality.sum$coefficients[2,4]) +
+  geom_text(aes(label = STATE), check_overlap = TRUE) +
+  theme_bw() +
+  ggtitle("linear regression of population density on mortality rates")
+
+pop.graph
+```
+
+top states
+```{r}
+svi.sig.crit = 10
+svi.pop.top <- svi.mortality.pop %>%
+  slice_max(pop.log, n = svi.sig.crit)
+svi.pop.top.states = svi.pop.top$STATE
+
+
+svi.pop.top.states
+#  [1] "New Jersey"    "Rhode Island"  "Massachusetts" "Connecticut"   "Maryland"      "Delaware"      "New York"      "Florida"       "Pennsylvania"
+# [10] "Ohio"  
+
+mobility.active.top <- mobility.active %>%
+  filter(state %in% svi.pop.top.states) %>%
+  group_by(state, biweek) %>%
+  summarise(active.mean = active.avg,
+            mobility.mean = mean(c(retail.recreation.avg, grocery.pharmacy.avg, parks.avg, transit.avg, workplace.avg, residential.avg), na.rm = TRUE),
+            retail.recreation.mean = mean(retail.recreation.avg, na.rm = TRUE),
+            grocery.pharmacy.mean = mean(grocery.pharmacy.avg, na.rm = TRUE),
+            parks.mean = mean(parks.avg, na.rm = TRUE),
+            transit.mean = mean(transit.avg, na.rm = TRUE),
+            workplace.mean = mean(workplace.avg, na.rm = TRUE),
+            residential.mean = mean(residential.avg, na.rm = TRUE)) %>%
+  group_by(biweek) %>%
+  summarise(mean.active = mean(active.mean),
+            mean.mobility = mean(mobility.mean, na.rm = TRUE) ,
+            mean.retail.recreation = mean(retail.recreation.mean, na.rm = TRUE),
+            mean.grocery.pharmacy = mean(grocery.pharmacy.mean, na.rm = TRUE),
+            mean.parks = mean(parks.mean, na.rm = TRUE),
+            mean.transit = mean(transit.mean, na.rm = TRUE),
+            mean.workplace = mean(workplace.mean, na.rm = TRUE),
+            mean.residenstial = mean(residential.mean, na.rm = TRUE))
+
+mobility.active.top.lm <- lm(mean.active ~ mean.mobility, data = mobility.active.top)
+mobility.active.top.res <- residuals(mobility.active.top.lm)
+
+# retail and recreation
+retail.mobility.top.lm <- lm(mean.retail.recreation ~ mean.mobility, data = mobility.active.top)
+retail.top.res <- residuals(retail.mobility.top.lm)
+# below is lm(residual ~ residual)
+retail.top.lm <- lm(mobility.active.top.res ~ retail.top.res)
+retail.top.sum <- summary(retail.top.lm)
+# r squared = 0.891 ***
+
+# grocery and pharmacy
+grocery.pharmacy.mobility.top.lm <- lm(mean.grocery.pharmacy ~ mean.mobility, data = mobility.active.top)
+grocery.top.res <- residuals(grocery.pharmacy.mobility.top.lm)
+# below is lm(residual ~ residual)
+grocery.top.lm <- lm(mobility.active.top.res ~ grocery.top.res)
+grocery.top.sum <- summary(grocery.top.lm)
+# r squared = 0.04013 not significant 
+
+# parks  
+parks.mobility.top.lm <- lm(mean.parks ~ mean.mobility, data = mobility.active.top)
+parks.top.res <- residuals(parks.mobility.top.lm)
+# below is lm(residual ~ residual)
+parks.top.lm <- lm(mobility.active.top.res ~ parks.top.res)
+parks.top.sum <- summary(parks.top.lm)
+# r squared = 0.7102 *** 
+
+# transit
+transit.mobility.top.lm <- lm(mean.transit ~ mean.mobility, data = mobility.active.top)
+transit.top.res <- residuals(transit.mobility.top.lm)
+# below is lm(residual ~ residual)
+transit.top.lm <- lm(mobility.active.top.res ~ transit.top.res)
+transit.top.sum <- summary(transit.top.lm)
+# r squared = 0.7711 ***
+
+# workplace
+workplace.mobility.top.lm <- lm(mean.workplace ~ mean.mobility, data = mobility.active.top)
+workplace.top.res <- residuals(workplace.mobility.top.lm)
+# below is lm(residual ~ residual)
+workplace.top.lm <- lm(mobility.active.top.res ~ workplace.top.res)
+workplace.top.sum <- summary(workplace.top.lm)
+# r squraed = 0.8148 ***
+
+# residential
+residential.mobility.top.lm <- lm(mean.residenstial ~ mean.mobility, data = mobility.active.top)
+residential.top.res <- residuals(residential.mobility.top.lm)
+# below is lm(residual ~ residual)
+residential.top.lm <- lm(mobility.active.top.res ~ residential.top.res)
+residential.top.sum <- summary(residential.top.lm)
+# r squared = 0.9056 ***
+```
+
+
+bottom states
+```{r}
+svi.pop.bottom <- svi.mortality.pop %>%
+  slice_min(pop.log, n = svi.sig.crit)
+svi.pop.bottom.states = svi.pop.bottom$STATE
+svi.pop.bottom.states
+
+#  [1] "Alaska"       "Wyoming"      "Montana"      "North Dakota" "South Dakota" "New Mexico"   "Idaho"        "Nebraska"     "Nevada"      
+# [10] "Kansas"
+
+mobility.active.bottom <- mobility.active %>%
+  filter(state %in% svi.pop.bottom.states) %>%
+  group_by(state, biweek) %>%
+  summarise(active.mean = active.avg,
+            mobility.mean = mean(c(retail.recreation.avg, grocery.pharmacy.avg, parks.avg, transit.avg, workplace.avg, residential.avg), na.rm = TRUE),
+            retail.recreation.mean = mean(retail.recreation.avg, na.rm = TRUE),
+            grocery.pharmacy.mean = mean(grocery.pharmacy.avg, na.rm = TRUE),
+            parks.mean = mean(parks.avg, na.rm = TRUE),
+            transit.mean = mean(transit.avg, na.rm = TRUE),
+            workplace.mean = mean(workplace.avg, na.rm = TRUE),
+            residential.mean = mean(residential.avg, na.rm = TRUE)) %>%
+  group_by(biweek) %>%
+  summarise(mean.active = mean(active.mean),
+            mean.mobility = mean(mobility.mean, na.rm = TRUE) ,
+            mean.retail.recreation = mean(retail.recreation.mean, na.rm = TRUE),
+            mean.grocery.pharmacy = mean(grocery.pharmacy.mean, na.rm = TRUE),
+            mean.parks = mean(parks.mean, na.rm = TRUE),
+            mean.transit = mean(transit.mean, na.rm = TRUE),
+            mean.workplace = mean(workplace.mean, na.rm = TRUE),
+            mean.residenstial = mean(residential.mean, na.rm = TRUE))
+
+
+mobility.active.bottom.lm <- lm(mean.active ~ mean.mobility, data = mobility.active.bottom)
+mobility.active.bottom.res <- residuals(mobility.active.bottom.lm)
+
+# retail and recreation
+retail.mobility.bottom.lm <- lm(mean.retail.recreation ~ mean.mobility, data = mobility.active.bottom)
+retail.bottom.res <- residuals(retail.mobility.bottom.lm)
+# below is lm(residual ~ residual)
+retail.bottom.lm <- lm(mobility.active.bottom.res ~ retail.bottom.res)
+retail.bottom.sum <- summary(retail.bottom.lm)
+# r squared = 0.4398 ***
+
+# grocery and pharmacy
+grocery.pharmacy.mobility.bottom.lm <- lm(mean.grocery.pharmacy ~ mean.mobility, data = mobility.active.bottom)
+grocery.bottom.res <- residuals(grocery.pharmacy.mobility.bottom.lm)
+# below is lm(residual ~ residual)
+grocery.bottom.lm <- lm(mobility.active.bottom.res ~ grocery.bottom.res)
+grocery.bottom.sum <- summary(grocery.bottom.lm)
+# r squared =  0.1935 not significant 
+
+# parks
+parks.mobility.bottom.lm <- lm(mean.parks ~ mean.mobility, data = mobility.active.bottom)
+# below is lm(residual ~ residual)
+parks.bottom.res <- residuals(parks.mobility.bottom.lm)
+parks.bottom.lm <- lm(mobility.active.bottom.res ~ parks.bottom.res)
+parks.bottom.sum <- summary(parks.bottom.lm)
+# r squared = 0.5391 ** 
+
+# transit
+transit.mobility.bottom.lm <- lm(mean.transit ~ mean.mobility, data = mobility.active.bottom)
+# below is lm(residual ~ residual)
+transit.bottom.res <- residuals(transit.mobility.bottom.lm)
+transit.bottom.lm <- lm(mobility.active.bottom.res ~ transit.bottom.res)
+transit.bottom.sum <- summary(transit.bottom.lm)
+# r squared = 0.6077 **
+
+# workplace
+workplace.mobility.bottom.lm <- lm(mean.workplace ~ mean.mobility, data = mobility.active.bottom)
+workplace.bottom.res <- residuals(workplace.mobility.bottom.lm)
+# below is lm(residual ~ residual)
+workplace.bottom.lm <- lm(mobility.active.bottom.res ~ workplace.bottom.res)
+workplace.bottom.sum <- summary(workplace.bottom.lm)
+# r squared =  0.6329 ***
+
+
+# residential
+residential.mobility.bottom.lm <- lm(mean.residenstial ~ mean.mobility, data = mobility.active.bottom)
+residential.bottom.res <- residuals(residential.mobility.bottom.lm)
+# below is lm(residual ~ residual)
+residential.bottom.lm <- lm(mobility.active.bottom.res ~ residential.bottom.res)
+residential.bottom.sum <- summary(residential.bottom.lm)
+# r squared = 0.658 ***
+residential.bottom.df <- data.frame(mobility.active.bottom.res, residential.bottom.res)
+
+
+
+mobility.active.graph.bottom <- ggplot(data=mobility.active.bottom,aes(x=mean.mobility, y=mean.active)) +
+  geom_jitter(colour="dark green", alpha=0.7) +
+  geom_smooth(method = "lm",
+              formula = y ~ x,
+              col = "dark green") +
+  labs(x = "average of mobility activity",
+       y = "average of COVID-19 active cases") +
+  theme_bw() +
+  ggtitle("linear regression of mean mobility activities on COVID-19 active rates")
+
+
+
+residential.bottom.graph <- 
+  ggplot(data=mobility.active.bottom,aes(x=mean.residenstial,y=mean.mobility)) +
+  geom_jitter(colour="dark green", alpha=0.7) +
+  geom_smooth(method = "lm",
+              formula = y ~ x,
+              col = "dark green") +
+  labs(x = "average residential activity chanegs",
+     y = "average of mobility activities changes") +
+  theme(plot.title = element_text(size = 12),
+        axis.title = element_text(size = 10)) +
+  ggtitle("linear regression of residential activity chanegs to the average mobility activities changes")
+# when residual of residential increase, the residual of active cases to average mobility decreases 
+
+
+
+
+res.residential.bottom.graph <-
+    ggplot(data=residential.bottom.df,aes(x=mobility.active.bottom.res,y=residential.bottom.res)) + 
+    geom_jitter(colour="dark green", alpha=0.7) +
+    geom_smooth(method = "lm",
+              formula = y ~ x,
+              col = "dark green") +
+    labs(x = "residuals of mobility mean ~ residential mean",
+         y = "residuals of active ~ mobility mean") +
+    theme_bw() +
+    ggtitle("linear regression of residential residual on mobility average residual")
+
+
+
+mobility.active.graph.bottom 
+residential.bottom.graph
+res.residential.bottom.graph
+```
+
+```{r}
+retail.active.Rsquare <- c()
+grocery.active.Rsquare <- c()
+parks.active.Rsquare <- c()
+transit.active.Rsquare <- c()
+workplace.active.Rsquare <- c()
+residential.active.Rsquare <- c()
+
+retail.active.F <- c()
+grocery.active.F <- c()
+parks.active.F <- c()
+transit.active.F <- c()
+workplace.active.F <- c()
+residential.active.F <- c()
+
+retail.active.pval <- c()
+grocery.active.pval <- c()
+parks.active.pval <- c()
+transit.active.pval <- c()
+workplace.active.pval <- c()
+residential.active.pval <- c()
+
+# svi.pop.top.states
+#  [1] "New Jersey"    "Rhode Island"  "Massachusetts" "Connecticut"   "Maryland"      "Delaware"      "New York"      "Florida"       "Pennsylvania"
+# [10] "Ohio" 
+
+# svi.pop.bottom.states
+#  [1] "Alaska"       "Wyoming"      "Montana"      "North Dakota" "South Dakota" "New Mexico"   "Idaho"        "Nebraska"     "Nevada"      
+# [10] "Kansas"
+
+mobility.active.all <- mobility.active %>%
+  group_by(state, biweek) %>%
+  summarise(mean.active = active.avg,
+            mean.mobility = mean(c(retail.recreation.avg, grocery.pharmacy.avg, parks.avg, transit.avg, workplace.avg, residential.avg), na.rm = TRUE),
+            mean.retail.recreation = mean(retail.recreation.avg, na.rm = TRUE),
+            mean.grocery.pharmacy = mean(grocery.pharmacy.avg, na.rm = TRUE),
+            mean.parks = mean(parks.avg, na.rm = TRUE),
+            mean.transit = mean(transit.avg, na.rm = TRUE),
+            mean.workplace = mean(workplace.avg, na.rm = TRUE),
+            mean.residential = mean(residential.avg, na.rm = TRUE))
+
+for (s in svi.pop.top.states) {
+  mobility.active.s <- mobility.active.all %>% 
+    filter(state == s)
+  
+  mobility.active.s.lm <- lm(mean.active ~ mean.mobility, data = mobility.active.s)
+  mobility.active.s.res <- residuals(mobility.active.s.lm)
+  
+  # retail and recreation
+  retail.mobility.s.lm <- lm(mean.retail.recreation ~ mean.mobility, data = mobility.active.s)
+  retail.s.res <- residuals(retail.mobility.s.lm)
+  # below is lm(residual ~ residual)
+  retail.s.lm <- lm(mobility.active.s.res ~ retail.s.res)
+  retail.s.sum <- summary(retail.s.lm)
+  # r squared = 0.4398 ***
+  
+  # grocery and pharmacy
+  grocery.pharmacy.mobility.s.lm <- lm(mean.grocery.pharmacy ~ mean.mobility, data = mobility.active.s)
+  grocery.s.res <- residuals(grocery.pharmacy.mobility.s.lm)
+  # below is lm(residual ~ residual)
+  grocery.s.lm <- lm(mobility.active.s.res ~ grocery.s.res)
+  grocery.s.sum <- summary(grocery.s.lm)
+  # r squared =  0.1935 not significant 
+  
+  # parks
+  parks.mobility.s.lm <- lm(mean.parks ~ mean.mobility, na.action=na.exclude, data = mobility.active.s)
+  # below is lm(residual ~ residual)
+  parks.s.res <- residuals(parks.mobility.s.lm)
+  parks.s.lm <- lm(mobility.active.s.res ~ parks.s.res)
+  parks.s.sum <- summary(parks.s.lm)
+  # r squared = 0.5391 ** 
+  
+  # transit
+  transit.mobility.s.lm <- lm(mean.transit ~ mean.mobility, data = mobility.active.s)
+  # below is lm(residual ~ residual)
+  transit.s.res <- residuals(transit.mobility.s.lm)
+  transit.s.lm <- lm(mobility.active.s.res ~ transit.s.res)
+  transit.s.sum <- summary(transit.s.lm)
+  # r squared = 0.6077 **
+  
+  # workplace
+  workplace.mobility.s.lm <- lm(mean.workplace ~ mean.mobility, data = mobility.active.s)
+  workplace.s.res <- residuals(workplace.mobility.s.lm)
+  # below is lm(residual ~ residual)
+  workplace.s.lm <- lm(mobility.active.s.res ~ workplace.s.res)
+  workplace.s.sum <- summary(workplace.s.lm)
+  # r squared =  0.6329 ***
+
+  # residential
+  residential.mobility.s.lm <- lm(mean.residential ~ mean.mobility, data = mobility.active.s)
+  residential.s.res <- residuals(residential.mobility.s.lm)
+  # below is lm(residual ~ residual)
+  residential.s.lm <- lm(mobility.active.s.res ~ residential.s.res)
+  residential.s.sum <- summary(residential.s.lm)
+  # r squared = 0.658 ***
+  # residential.s.df <- data.frame(mobility.active.s.res, residential.s.res)
+
+  # r square
+  retail.active.Rsquare <- append(retail.active.Rsquare, retail.s.sum$r.squared)
+  grocery.active.Rsquare <- append(grocery.active.Rsquare, grocery.s.sum$r.squared)
+  parks.active.Rsquare <- append(parks.active.Rsquare, parks.s.sum$r.squared)
+  transit.active.Rsquare <- append(transit.active.Rsquare, transit.s.sum$r.squared)
+  workplace.active.Rsquare <- append(workplace.active.Rsquare, workplace.s.sum$r.squared)
+  residential.active.Rsquare <- append(residential.active.Rsquare, residential.s.sum$r.squared)
+
+  # F value
+  # retail.active.F <- append(retail.active.F, retail.s.sum$fstatistic)
+  # grocery.active.F <- append(grocery.active.F, grocery.s.sum$fstatistic)
+  # parks.active.F <- append(parks.active.F, parks.s.sum$fstatistic)
+  # transit.active.F <- append(transit.active.F, transit.s.sum$fstatistic)
+  # workplace.active.F <- append(workplace.active.F, workplace.s.sum$fstatistic)
+  # residential.active.F <- append(residential.active.F, residential.s.sum$fstatistic)
+
+  # p value
+  retail.active.pval <- append(retail.active.pval, retail.s.sum$coefficients[2,4])
+  grocery.active.pval <- append(grocery.active.pval, grocery.s.sum$coefficients[2,4])
+  parks.active.pval <- append(parks.active.pval, parks.s.sum$coefficients[2,4])
+  transit.active.pval <- append(transit.active.pval, transit.s.sum$coefficients[2,4])
+  workplace.active.pval <- append(workplace.active.pval, workplace.s.sum$coefficients[2,4])
+  residential.active.pval <- append(residential.active.pval, residential.s.sum$coefficients[2,4])
+
+  # mse
+  # retail.active.mse <- append(retail.active.mse, mean(retail.s.sum$residuals ^ 2))
+  # grocery.active.mse <- append(grocery.active.mse, mean(grocery.s.sum$residuals ^ 2))
+  # parks.active.mse <- append(parks.active.mse, mean(parks.s.sum$r.squared ^ 2))
+  # transit.active.mse <- append(transit.active.mse, mean(transit.s.sum$r.squared ^ 2))
+  # workplace.active.mse <- append(workplace.active.mse, mean(workplace.s.sum$r.squared ^ 2))
+  # residential.active.mse <- append(residential.active.mse, mean(residential.s.sum$r.squared ^ 2))
+}
+
+for (s in svi.pop.bottom.states) {
+  mobility.active.s <- mobility.active.all %>% 
+    filter(state == s)
+  
+  mobility.active.s.lm <- lm(mean.active ~ mean.mobility, data = mobility.active.s)
+  mobility.active.s.res <- residuals(mobility.active.s.lm)
+  
+  # retail and recreation
+  retail.mobility.s.lm <- lm(mean.retail.recreation ~ mean.mobility, data = mobility.active.s)
+  retail.s.res <- residuals(retail.mobility.s.lm)
+  # below is lm(residual ~ residual)
+  retail.s.lm <- lm(mobility.active.s.res ~ retail.s.res)
+  retail.s.sum <- summary(retail.s.lm)
+  # r squared = 0.4398 ***
+  
+  # grocery and pharmacy
+  grocery.pharmacy.mobility.s.lm <- lm(mean.grocery.pharmacy ~ mean.mobility, data = mobility.active.s)
+  grocery.s.res <- residuals(grocery.pharmacy.mobility.s.lm)
+  # below is lm(residual ~ residual)
+  grocery.s.lm <- lm(mobility.active.s.res ~ grocery.s.res)
+  grocery.s.sum <- summary(grocery.s.lm)
+  # r squared =  0.1935 not significant 
+  
+  # parks
+  parks.mobility.s.lm <- lm(mean.parks ~ mean.mobility, na.action=na.exclude, data = mobility.active.s)
+  # below is lm(residual ~ residual)
+  parks.s.res <- residuals(parks.mobility.s.lm)
+  parks.s.lm <- lm(mobility.active.s.res ~ parks.s.res)
+  parks.s.sum <- summary(parks.s.lm)
+  # r squared = 0.5391 ** 
+  
+  # transit
+  transit.mobility.s.lm <- lm(mean.transit ~ mean.mobility, na.action=na.exclude, data = mobility.active.s)
+  # below is lm(residual ~ residual)
+  transit.s.res <- residuals(transit.mobility.s.lm)
+  transit.s.lm <- lm(mobility.active.s.res ~ transit.s.res)
+  transit.s.sum <- summary(transit.s.lm)
+  # r squared = 0.6077 **
+  
+  # workplace
+  workplace.mobility.s.lm <- lm(mean.workplace ~ mean.mobility, data = mobility.active.s)
+  workplace.s.res <- residuals(workplace.mobility.s.lm)
+  # below is lm(residual ~ residual)
+  workplace.s.lm <- lm(mobility.active.s.res ~ workplace.s.res)
+  workplace.s.sum <- summary(workplace.s.lm)
+  # r squared =  0.6329 ***
+
+  # residential
+  residential.mobility.s.lm <- lm(mean.residential ~ mean.mobility, data = mobility.active.s)
+  residential.s.res <- residuals(residential.mobility.s.lm)
+  # below is lm(residual ~ residual)
+  residential.s.lm <- lm(mobility.active.s.res ~ residential.s.res)
+  residential.s.sum <- summary(residential.s.lm)
+  # r squared = 0.658 ***
+  # residential.s.df <- data.frame(mobility.active.s.res, residential.s.res)
+
+  # r square
+  retail.active.Rsquare <- append(retail.active.Rsquare, retail.s.sum$r.squared)
+  grocery.active.Rsquare <- append(grocery.active.Rsquare, grocery.s.sum$r.squared)
+  parks.active.Rsquare <- append(parks.active.Rsquare, parks.s.sum$r.squared)
+  transit.active.Rsquare <- append(transit.active.Rsquare, transit.s.sum$r.squared)
+  workplace.active.Rsquare <- append(workplace.active.Rsquare, workplace.s.sum$r.squared)
+  residential.active.Rsquare <- append(residential.active.Rsquare, residential.s.sum$r.squared)
+
+  # F value
+  # retail.active.F <- append(retail.active.F, retail.s.sum$fstatistic)
+  # grocery.active.F <- append(grocery.active.F, grocery.s.sum$fstatistic)
+  # parks.active.F <- append(parks.active.F, parks.s.sum$fstatistic)
+  # transit.active.F <- append(transit.active.F, transit.s.sum$fstatistic)
+  # workplace.active.F <- append(workplace.active.F, workplace.s.sum$fstatistic)
+  # residential.active.F <- append(residential.active.F, residential.s.sum$fstatistic)
+
+  # p value
+  retail.active.pval <- append(retail.active.pval, retail.s.sum$coefficients[2,4])
+  grocery.active.pval <- append(grocery.active.pval, grocery.s.sum$coefficients[2,4])
+  parks.active.pval <- append(parks.active.pval, parks.s.sum$coefficients[2,4])
+  transit.active.pval <- append(transit.active.pval, transit.s.sum$coefficients[2,4])
+  workplace.active.pval <- append(workplace.active.pval, workplace.s.sum$coefficients[2,4])
+  residential.active.pval <- append(residential.active.pval, residential.s.sum$coefficients[2,4])
+
+  # mse
+  # retail.active.mse <- append(retail.active.mse, mean(retail.s.sum$residuals ^ 2))
+  # grocery.active.mse <- append(grocery.active.mse, mean(grocery.s.sum$residuals ^ 2))
+  # parks.active.mse <- append(parks.active.mse, mean(parks.s.sum$r.squared ^ 2))
+  # transit.active.mse <- append(transit.active.mse, mean(transit.s.sum$r.squared ^ 2))
+  # workplace.active.mse <- append(workplace.active.mse, mean(workplace.s.sum$r.squared ^ 2))
+  # residential.active.mse <- append(residential.active.mse, mean(residential.s.sum$r.squared ^ 2))
+}
+
+# tmp <- summary(lm(active.avg ~ retail.recreation.avg, mobility.active.Iowa))
+# tmp$coefficients[2,4]
+rsquares <- data.frame(state = c(svi.pop.top.states, svi.pop.bottom.states), category = c(rep('Top', svi.sig.crit), rep('Bottom', svi.sig.crit)), 
+                       retail.Rsquare = retail.active.Rsquare, grocery.Rsquare = grocery.active.Rsquare,
+                       parks.Rsquare = parks.active.Rsquare, transit.Rsquare = transit.active.Rsquare,
+                       workplace.Rsquare = workplace.active.Rsquare, residential.Rsquare = residential.active.Rsquare)
+
+# fstatistics <- data.frame(state = US.states, retail.F = retail.active.F, grocery.F = grocery.active.F,
+#                           parks.F = parks.active.F, transit.F = transit.active.F,
+#                           workplace.F = workplace.active.F, residential.F = residential.active.F)
+
+pvals <- data.frame(state = c(svi.pop.top.states, svi.pop.bottom.states), category = c(rep('Top', svi.sig.crit), rep('Bottom', svi.sig.crit)), 
+                    retail.pval = retail.active.pval, grocery.pval = grocery.active.pval,
+                    parks.pval = parks.active.pval, transit.pval = transit.active.pval,
+                    workplace.pval = workplace.active.pval, residential.pval = residential.active.pval)
+
+# mses <- data.frame(state = US.states, retail.mse = retail.active.mse, grocery.mse = grocery.active.mse,
+#                    parks.mse = parks.active.mse, transit.mse = transit.active.mse,
+#                    workplace.mse = workplace.active.mse, residential.mse = residential.active.mse)
+# c(rsquares, pvals)
+
+```
+
+```{r}
+rsquares.top <- rsquares %>% filter(category == 'Top')
+rsquares.bottom <- rsquares %>% filter(category == 'Bottom')
+retail.t.sum <- t.test(rsquares.top$retail.Rsquare, rsquares.bottom$retail.Rsquare, var.equal = T)
+
+grocery.t.sum <- t.test(rsquares.top$grocery.Rsquare, rsquares.bottom$grocery.Rsquare, var.equal = T)
+
+parks.t.sum <- t.test(rsquares.top$parks.Rsquare, rsquares.bottom$parks.Rsquare, var.equal = T)
+
+transit.t.sum <- t.test(rsquares.top$transit.Rsquare, rsquares.bottom$transit.Rsquare, var.equal = T)
+
+workplace.t.sum <- t.test(rsquares.top$workplace.Rsquare, rsquares.bottom$workplace.Rsquare, var.equal = T)
+
+residential.t.sum <- t.test(rsquares.top$residential.Rsquare, rsquares.bottom$residential.Rsquare, var.equal = T)
+
+anova(lm(data = rsquares, grocery.Rsquare ~ category))
+```
+
