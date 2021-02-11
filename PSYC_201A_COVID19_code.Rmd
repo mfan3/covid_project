@@ -971,3 +971,29 @@ residential.t.sum <- t.test(rsquares.top$residential.Rsquare, rsquares.bottom$re
 anova(lm(data = rsquares, grocery.Rsquare ~ category))
 ```
 
+
+
+calculating growth rate using Badr's method
+```{r}
+library(zoo)
+mobility.active.rates <- merge(mobility.change, covid.active.diff, by.x = c("sub_region_1", "date"), by.y = c("state", "date"))
+# active rates df
+mobility.active.rates <- mobility.active.rates %>%
+  mutate(state = sub_region_1) %>%
+  select(c(state, date, retail_and_recreation_percent_change_from_baseline, grocery_and_pharmacy_percent_change_from_baseline, parks_percent_change_from_baseline, transit_stations_percent_change_from_baseline, workplaces_percent_change_from_baseline, residential_percent_change_from_baseline, active.rates)) %>%
+  filter(date >= as.Date("2020-04-13"))
+
+mobility.active.rates$avg.3days = rollsumr(mobility.active.rates$active.rates, k = 3, fill = NA)
+mobility.active.rates$avg.7days = rollsumr(mobility.active.rates$active.rates, k = 7, fill = NA)
+
+dates.gr <- format(seq(from = as.Date("2020/04/20"), to = as.Date("2020/10/24"), by = "day"), "%m-%d-%Y")
+
+for (date in dates.gr){
+  mobility.active.rates <- mobility.active.rates %>%
+    group_by(state) %>%
+    mutate(growth.rate = log(avg.3days)/log(avg.7days))
+}
+
+
+```
+
