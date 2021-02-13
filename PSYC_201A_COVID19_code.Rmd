@@ -993,7 +993,121 @@ for (date in dates.gr){
     group_by(state) %>%
     mutate(growth.rate = log(avg.3days)/log(avg.7days))
 }
+```
 
+
+PCA calculation
+```{r}
+library(missMDA)
+# filling missing data using iterative imputation
+nb <- estim_ncpPCA(mobility.active.rates[,3:7], method.cv = "Kfold", verbose = FALSE) # estimate the number of components from incomplete data 
+
+#(available methods include GCV to approximate CV)
+nb$ncp #4
+
+mobility.active.comp <- imputePCA(mobility.active.rates[,3:7], ncp = nb$ncp) # iterativePCA algorithm
+
+mobility.pca <- prcomp(mobility.active.comp$completeObs, center = TRUE, scale = TRUE)
+#mobility.pca$x[,"PC1"]
+mobility.pca$rotation <- -mobility.pca$rotation
+mobility.pca$x <- -mobility.pca$x
+#biplot(mobility.pca, scale = 0)
+```
+
+```{r}
+# combine imputed data with growth rate 
+mobility.active.rates.imputed <- data.frame(mobility.active.comp$completeObs) %>% 
+  cbind(mobility.active.rates[,c(1,2)], ., mobility.active.rates[,c(9,10,11,12)])
+# add PC1 as pca
+mobility.active.rates.imputed$mobility.pca = mobility.pca$x[,"PC1"]
 
 ```
 
+biweek binning of dates
+```{r}
+# filter dates, bin data biweek
+mobility.active.rates.imputed %>% 
+  filter(date >= as.Date("2020-04-19")) %>%
+  mutate(month = months(date),
+         week = format(date, format = '%W'),
+         # the following code converts to biweekly
+         biweek = 14 * (as.numeric(date - min(date)) %/% 14) + min(date)) %>%
+  group_by(state, biweek) %>%
+  summarise(retail.recreation.avg = mean(retail_and_recreation_percent_change_from_baseline),
+            grocery.pharmacy.avg = mean(grocery_and_pharmacy_percent_change_from_baseline),
+            parks.avg = mean(parks_percent_change_from_baseline),
+            transit.avg = mean(transit_stations_percent_change_from_baseline),
+            workplace.avg = mean(workplaces_percent_change_from_baseline),
+            active.avg = mean(active.rates),
+            growth.rate.avg = mean(growth.rate),
+            mobility.pca.avg = mean(mobility.pca))
+```
+
+### previous codes for partial regression (NEED TO BE MODIFIED)
+```{r}
+# do we need average for all states?
+mobility.active.bottom <- mobility.active %>%
+  filter(state %in% svi.pop.bottom.states) %>%
+  group_by(state, biweek) %>%
+  summarise(active.mean = active.avg,
+            mobility.mean = mean(c(retail.recreation.avg, grocery.pharmacy.avg, parks.avg, transit.avg, workplace.avg, residential.avg), na.rm = TRUE),
+            retail.recreation.mean = mean(retail.recreation.avg, na.rm = TRUE),
+            grocery.pharmacy.mean = mean(grocery.pharmacy.avg, na.rm = TRUE),
+            parks.mean = mean(parks.avg, na.rm = TRUE),
+            transit.mean = mean(transit.avg, na.rm = TRUE),
+            workplace.mean = mean(workplace.avg, na.rm = TRUE),
+            residential.mean = mean(residential.avg, na.rm = TRUE)) %>%
+  group_by(biweek) %>%
+  summarise(mean.active = mean(active.mean),
+            mean.mobility = mean(mobility.mean, na.rm = TRUE) ,
+            mean.retail.recreation = mean(retail.recreation.mean, na.rm = TRUE),
+            mean.grocery.pharmacy = mean(grocery.pharmacy.mean, na.rm = TRUE),
+            mean.parks = mean(parks.mean, na.rm = TRUE),
+            mean.transit = mean(transit.mean, na.rm = TRUE),
+            mean.workplace = mean(workplace.mean, na.rm = TRUE),
+            mean.residenstial = mean(residential.mean, na.rm = TRUE))
+
+# add states to the lm() model?
+mobility.active.bottom.lm <- lm(mean.active ~ mean.mobility, data = mobility.active.bottom)
+mobility.active.bottom.res <- residuals(mobility.active.bottom.lm)
+
+# retail and recreation
+retail.mobility.bottom.lm <- lm(mean.retail.recreation ~ mean.mobility, data = mobility.active.bottom)
+retail.bottom.res <- residuals(retail.mobility.bottom.lm)
+# below is lm(residual ~ residual)
+retail.bottom.lm <- lm(mobility.active.bottom.res ~ retail.bottom.res)
+retail.bottom.sum <- summary(retail.bottom.lm)
+# r squared = 0.4398 ***
+
+# grocery and pharmacy
+grocery.pharmacy.mobility.bottom.lm <- lm(mean.grocery.pharmacy ~ mean.mobility, data = mobility.active.bottom)
+grocery.bottom.res <- residuals(grocery.pharmacy.mobility.bottom.lm)
+# below is lm(residual ~ residual)
+grocery.bottom.lm <- lm(mobility.active.bottom.res ~ grocery.bottom.res)
+grocery.bottom.sum <- summary(grocery.bottom.lm)
+# r squared =  0.1935 not significant 
+
+# parks
+parks.mobility.bottom.lm <- lm(mean.parks ~ mean.mobility, data = mobility.active.bottom)
+# below is lm(residual ~ residual)
+parks.bottom.res <- residuals(parks.mobility.bottom.lm)
+parks.bottom.lm <- lm(mobility.active.bottom.res ~ parks.bottom.res)
+parks.bottom.sum <- summary(parks.bottom.lm)
+# r squared = 0.5391 ** 
+
+# transit
+transit.mobility.bottom.lm <- lm(mean.transit ~ mean.mobility, data = mobility.active.bottom)
+# below is lm(residual ~ residual)
+transit.bottom.res <- residuals(transit.mobility.bottom.lm)
+transit.bottom.lm <- lm(mobility.active.bottom.res ~ transit.bottom.res)
+transit.bottom.sum <- summary(transit.bottom.lm)
+# r squared = 0.6077 **
+
+# workplace
+workplace.mobility.bottom.lm <- lm(mean.workplace ~ mean.mobility, data = mobility.active.bottom)
+workplace.bottom.res <- residuals(workplace.mobility.bottom.lm)
+# below is lm(residual ~ residual)
+workplace.bottom.lm <- lm(mobility.active.bottom.res ~ workplace.bottom.res)
+workplace.bottom.sum <- summary(workplace.bottom.lm)
+# r squared =  0.6329 ***
+```
