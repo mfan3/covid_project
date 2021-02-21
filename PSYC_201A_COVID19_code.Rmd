@@ -993,6 +993,26 @@ for (date in dates.gr){
     group_by(state) %>%
     mutate(growth.rate = log(avg.3days)/log(avg.7days))
 }
+
+glimpse(mobility.active.rates)
+```
+
+
+PCA imputation
+```{r}
+mobility.active.rates <- mobility.active.rates %>%
+  group_by(state) %>%
+  # double check on weighting method 
+  mutate(parks_percent_change_from_baseline = na_ma(parks_percent_change_from_baseline, weighting = "simple"),
+         transit_stations_percent_change_from_baseline = na_ma(transit_stations_percent_change_from_baseline, weighting = "simple"))
+
+library(robustHD)
+mobility.active.rates[,3:8] = standardize(mobility.active.rates[,3:8])
+
+mobility.active.rates <- mobility.active.rates %>% 
+  filter(date >= as.Date("2020-04-19")) 
+
+glimpse(mobility.active.rates)
 ```
 
 
@@ -1000,39 +1020,39 @@ PCA calculation
 ```{r}
 library(missMDA)
 # filling missing data using iterative imputation
-nb <- estim_ncpPCA(mobility.active.rates[,3:7], method.cv = "Kfold", verbose = FALSE) # estimate the number of components from incomplete data 
+#nb <- estim_ncpPCA(mobility.active.rates[,3:7], method.cv = "Kfold", verbose = FALSE) # estimate the number of components from incomplete data 
 
 #(available methods include GCV to approximate CV)
-nb$ncp #4
+#nb$ncp #4
 
-mobility.active.comp <- imputePCA(mobility.active.rates[,3:7], ncp = nb$ncp) # iterativePCA algorithm
+# mobility.active.comp <- imputePCA(mobility.active.rates[,3:7], ncp = nb$ncp) # iterativePCA algorithm
 
-mobility.pca <- prcomp(mobility.active.comp$completeObs, center = TRUE, scale = TRUE)
+mobility.pca <- prcomp(mobility.active.rates[,3:7], center = TRUE, scale = TRUE)
 #mobility.pca$x[,"PC1"]
-mobility.pca$rotation <- -mobility.pca$rotation
-mobility.pca$x <- -mobility.pca$x
+mobility.pca$rotation <- mobility.pca$rotation
+mobility.pca$x <- mobility.pca$x # negation necessary?
 #biplot(mobility.pca, scale = 0)
-```
 
-```{r}
 # combine imputed data with growth rate 
-mobility.active.rates.imputed <- data.frame(mobility.active.comp$completeObs) %>% 
-  cbind(mobility.active.rates[,c(1,2)], ., mobility.active.rates[,c(9,10,11,12)])
+#mobility.active.rates.imputed <- data.frame(mobility.active.comp$completeObs) %>% 
+#  cbind(mobility.active.rates[,c(1,2)], ., mobility.active.rates[,c(9,10,11,12)])
 # add PC1 as pca
-mobility.active.rates.imputed$mobility.pca = mobility.pca$x[,"PC1"]
+mobility.active.rates$mobility.pca = mobility.pca$x[,"PC1"]
 
+glimpse(mobility.active.rates)
 ```
+
 
 biweek binning of dates
 ```{r}
 # filter dates, bin data biweek
-mobility.active.rates.imputed %>% 
-  filter(date >= as.Date("2020-04-19")) %>%
+# countrywide analysis 
+mobility.active.rates.summary <-  mobility.active.rates %>% 
   mutate(month = months(date),
          week = format(date, format = '%W'),
          # the following code converts to biweekly
          biweek = 14 * (as.numeric(date - min(date)) %/% 14) + min(date)) %>%
-  group_by(state, biweek) %>%
+  group_by(biweek) %>%
   summarise(retail.recreation.avg = mean(retail_and_recreation_percent_change_from_baseline),
             grocery.pharmacy.avg = mean(grocery_and_pharmacy_percent_change_from_baseline),
             parks.avg = mean(parks_percent_change_from_baseline),
@@ -1041,9 +1061,61 @@ mobility.active.rates.imputed %>%
             active.avg = mean(active.rates),
             growth.rate.avg = mean(growth.rate),
             mobility.pca.avg = mean(mobility.pca))
+
+mobility.active.rates.summary
 ```
 
 ### previous codes for partial regression (NEED TO BE MODIFIED)
+
+```{r}
+# add states to the lm() model?
+mobility.active.country.lm <- lm(growth.rate.avg ~ mobility.pca.avg, data = mobility.active.rates.summary)
+mobility.active.country.res <- residuals(mobility.active.country.lm)
+# retail and recreation
+retail.active.country.lm <- lm(retail.recreation.avg ~ mobility.pca.avg, data = mobility.active.rates.summary)
+retail.bottom.res <- residuals(retail.active.country.lm)
+# below is lm(residual ~ residual)
+retail.country.lm <- lm(mobility.active.country.res ~ retail.bottom.res)
+retail.country.sum <- summary(retail.country.lm)
+# r squared = 0.1026
+
+
+# grocery and pharmacy
+grocery.pharmacy.mobility.country.lm <- lm(grocery.pharmacy.avg ~ mobility.pca.avg, data = mobility.active.rates.summary)
+grocery.pharmacy.mobility.country.res <- residuals(grocery.pharmacy.mobility.country.lm)
+# below is lm(residual ~ residual)
+grocery.country.lm <- lm(mobility.active.country.res ~ grocery.pharmacy.mobility.country.res)
+grocery.country.sum <- summary(grocery.country.lm)
+# r squared =   0.01809
+
+# parks
+parks.mobility.country.lm <- lm(parks.avg ~ mobility.pca.avg, data = mobility.active.rates.summary)
+# below is lm(residual ~ residual)
+parks.mobility.country.res <- residuals(parks.mobility.country.lm)
+parks.country.lm <- lm(mobility.active.country.res ~ parks.mobility.country.res)
+parks.country.sum <- summary(parks.country.lm)
+# r squared = 0.07035
+
+# transit
+transit.mobility.country.lm <- lm(transit.avg ~ mobility.pca.avg, data = mobility.active.rates.summary)
+# below is lm(residual ~ residual)
+transit.mobility.country.res <- residuals(transit.mobility.country.lm)
+transit.country.lm <- lm(mobility.active.country.res ~ transit.mobility.country.res)
+transit.country.sum <- summary(transit.country.lm)
+# r squared = 0.0005598
+
+# workplace
+workplace.mobility.country.lm <- lm(workplace.avg ~ mobility.pca.avg, data = mobility.active.rates.summary)
+workplace.mobility.country.res <- residuals(workplace.mobility.country.lm)
+# below is lm(residual ~ residual)
+workplace.country.lm <- lm(mobility.active.country.res ~ workplace.mobility.country.res)
+workplace.country.sum <- summary(workplace.country.lm)
+# r squared =  0.0495
+```
+
+
+
+
 ```{r}
 # do we need average for all states?
 mobility.active.bottom <- mobility.active %>%
@@ -1065,49 +1137,4 @@ mobility.active.bottom <- mobility.active %>%
             mean.parks = mean(parks.mean, na.rm = TRUE),
             mean.transit = mean(transit.mean, na.rm = TRUE),
             mean.workplace = mean(workplace.mean, na.rm = TRUE),
-            mean.residenstial = mean(residential.mean, na.rm = TRUE))
-
-# add states to the lm() model?
-mobility.active.bottom.lm <- lm(mean.active ~ mean.mobility, data = mobility.active.bottom)
-mobility.active.bottom.res <- residuals(mobility.active.bottom.lm)
-
-# retail and recreation
-retail.mobility.bottom.lm <- lm(mean.retail.recreation ~ mean.mobility, data = mobility.active.bottom)
-retail.bottom.res <- residuals(retail.mobility.bottom.lm)
-# below is lm(residual ~ residual)
-retail.bottom.lm <- lm(mobility.active.bottom.res ~ retail.bottom.res)
-retail.bottom.sum <- summary(retail.bottom.lm)
-# r squared = 0.4398 ***
-
-# grocery and pharmacy
-grocery.pharmacy.mobility.bottom.lm <- lm(mean.grocery.pharmacy ~ mean.mobility, data = mobility.active.bottom)
-grocery.bottom.res <- residuals(grocery.pharmacy.mobility.bottom.lm)
-# below is lm(residual ~ residual)
-grocery.bottom.lm <- lm(mobility.active.bottom.res ~ grocery.bottom.res)
-grocery.bottom.sum <- summary(grocery.bottom.lm)
-# r squared =  0.1935 not significant 
-
-# parks
-parks.mobility.bottom.lm <- lm(mean.parks ~ mean.mobility, data = mobility.active.bottom)
-# below is lm(residual ~ residual)
-parks.bottom.res <- residuals(parks.mobility.bottom.lm)
-parks.bottom.lm <- lm(mobility.active.bottom.res ~ parks.bottom.res)
-parks.bottom.sum <- summary(parks.bottom.lm)
-# r squared = 0.5391 ** 
-
-# transit
-transit.mobility.bottom.lm <- lm(mean.transit ~ mean.mobility, data = mobility.active.bottom)
-# below is lm(residual ~ residual)
-transit.bottom.res <- residuals(transit.mobility.bottom.lm)
-transit.bottom.lm <- lm(mobility.active.bottom.res ~ transit.bottom.res)
-transit.bottom.sum <- summary(transit.bottom.lm)
-# r squared = 0.6077 **
-
-# workplace
-workplace.mobility.bottom.lm <- lm(mean.workplace ~ mean.mobility, data = mobility.active.bottom)
-workplace.bottom.res <- residuals(workplace.mobility.bottom.lm)
-# below is lm(residual ~ residual)
-workplace.bottom.lm <- lm(mobility.active.bottom.res ~ workplace.bottom.res)
-workplace.bottom.sum <- summary(workplace.bottom.lm)
-# r squared =  0.6329 ***
-```
+   
