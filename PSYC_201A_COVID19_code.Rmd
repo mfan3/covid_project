@@ -197,7 +197,7 @@ covid <- covid.deaths %>% inner_join(covid.confirmed, by = c("state","date"))
 
 Looping through dates
 ```{r, message=FALSE}
-dates <- format(seq(from = as.Date("2020/04/13"), to = as.Date("2020/10/24"), by = "day"), "%m-%d-%Y")
+dates <- format(seq(from = as.Date("2020/04/13"), to = as.Date("2021/02/21"), by = "day"), "%m-%d-%Y")
 date = "04-12-2020"
 reports.raw <- read_csv(paste("./datasets/csse_covid_19_daily_reports_us/", date, ".csv", sep = ""))
 report <- reports.raw %>%
