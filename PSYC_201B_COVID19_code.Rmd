@@ -1,0 +1,304 @@
+---
+title: "PSYC_201B_COVID_codes"
+author: Hyojeong(Jenny) Yoo, Jinah Kim, Juanshu(Sky) Wu, Muqing Fan, Xiangyu(Alaric) Wei, Yuchen(Eva) Liu  
+date: "2/28/2021"
+output: 
+  html_document:
+    toc: true
+    theme: united
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning=FALSE, message=FALSE)
+```
+
+# Introduction
+In this file, we cleaned and explored our following datasets:   
+- **JHU covid data (curren)**: https://github.com/CSSEGISandData/COVID-19  
+- **Google mobility reports (current)**: https://www.google.com/covid19/mobility/?hl=en  
+The JHU COVID-19 date provided us with historical covid progressions. Mobility data provided us relevant information during the pandemic. All datasets are analyzed on state-level.
+
+# Data Cleaning 
+
+## SVI data for county population 
+selecting relevant indices (refer to codebook)
+```{r, message=FALSE}
+svi.raw <- read_csv("./datasets/SVI2018_US_COUNTY.csv")
+svi.data <- svi.raw %>%
+  select(STATE,
+         COUNTY,
+         FIPS,
+         E_TOTPOP) 
+
+svi.data$FIPS = as.numeric(svi.data$FIPS)
+
+
+```
+
+
+## JHU COVID-19 data cleaning
+
+loading JHU covid confirmed historical dateset
+```{r, message=FALSE}
+covid.confirmed.raw <- read_csv("./datasets/csse_covid_19_time_series/time_series_covid19_confirmed_US.csv")
+# glimpse(covid.confirmed.raw)
+# cumulative confirmed cases on county level 
+```
+
+cleaning JHU covid confirmed historical dateset
+```{r, message=FALSE}
+covid.confirmed <- covid.confirmed.raw %>%
+  
+  select(-c(UID, iso2, iso3, code3, FIPS, Admin2, Country_Region, Lat, Long_, Combined_Key)) %>%
+  rename(state = Province_State) %>%
+  group_by(state) %>% # Specify group indicator
+  summarise(across(everything(), sum)) %>% # Specify column
+  pivot_longer(-c(state),
+               names_to = "date",
+               values_to = "cumulative.confirmed.cases") %>%
+  filter(state %in% c(state.name, "District of Columbia")) %>%
+  group_by(state) %>%
+  mutate(confirmed.cases = cumulative.confirmed.cases - lag(cumulative.confirmed.cases),
+         date = as.Date(date, format = "%m/%d/%y"),
+         confirmed.cases = replace_na(confirmed.cases, 0))
+
+# fix negative cumulative cases
+while (any(covid.confirmed$confirmed.cases < 0)) {
+  covid.confirmed <- covid.confirmed %>%
+    mutate(cumulative.confirmed.cases = ifelse(cumulative.confirmed.cases < lag(cumulative.confirmed.cases),
+                                         lag(cumulative.confirmed.cases), # if smaller than previous
+                                         cumulative.confirmed.cases), # if not
+           cumulative.confirmed.cases = replace_na(cumulative.confirmed.cases, 0),
+           confirmed.cases = cumulative.confirmed.cases - lag(cumulative.confirmed.cases),
+           confirmed.cases = replace_na(confirmed.cases, 0))
+}
+
+# combining death and confirmed into one dataset
+covid <- covid.deaths %>% inner_join(covid.confirmed, by = c("state","date"))
+```
+
+Looping through dates
+```{r, message=FALSE}
+dates <- format(seq(from = as.Date("2020/04/13"), to = as.Date("2021/02/21"), by = "day"), "%m-%d-%Y")
+date = "04-12-2020"
+reports.raw <- read_csv(paste("./datasets/csse_covid_19_daily_reports_us/", date, ".csv", sep = ""))
+report <- reports.raw %>%
+  select(-c(Country_Region, Last_Update, Lat, Long_, Confirmed, Deaths, FIPS, UID, ISO3)) %>%
+  rename(state = Province_State,
+         recovered.cases = Recovered,
+         active.cases = Active,
+         incident.rate = Incident_Rate, # positive results per 100,000 persons.
+         people.tested = People_Tested,
+         people.hospitalized = People_Hospitalized,
+         mortality.rate = Mortality_Rate,
+         testing.rate = Testing_Rate,
+         hospitalization.rate = Hospitalization_Rate) %>%
+  filter(state %in% c(state.name, "District of Columbia")) %>%
+  mutate(date = as.Date(date, format = "%m-%d-%y"),
+         # month = match(months(date), month.name),
+         incident.rate = incident.rate/1000,
+         # based on documentation (100k population)
+         testing.rate = testing.rate/1000) %>%
+    select(-c(people.hospitalized, hospitalization.rate, recovered.cases))
+
+
+
+for (date in dates){
+  reports.raw <- read_csv(paste("./datasets/csse_covid_19_daily_reports_us/", date, ".csv", sep = ""))
+  rpt <- reports.raw %>%
+    select(-c(Country_Region, Last_Update, Lat, Long_, Confirmed, Deaths, FIPS, UID, ISO3)) %>%
+    rename(state = Province_State,
+           recovered.cases = Recovered,
+           active.cases = Active,
+           incident.rate = Incident_Rate,
+           people.tested = People_Tested,
+           people.hospitalized = People_Hospitalized,
+           mortality.rate = Mortality_Rate,
+           testing.rate = Testing_Rate,
+           hospitalization.rate = Hospitalization_Rate) %>%
+    filter(state %in% c(state.name, "District of Columbia")) %>%
+    mutate(date = as.Date(date, format = "%m-%d-%y"),
+           # month = match(months(date), month.name),
+           incident.rate = incident.rate/1000,
+           testing.rate = testing.rate/1000) %>%
+    select(-c(people.hospitalized, hospitalization.rate, recovered.cases))
+  ### North Dekota has > 100% testing rate
+  report <- rbind(report, rpt)
+}
+
+reports <- report[c(1, 6, 7, 2, 3, 4, 5)][order(report$state, report$date),]
+
+covid.time.series <- covid %>%
+  full_join(reports, by = c("state","date")) %>%
+  mutate(active.rates = 100*(active.cases / population)) # added normalized active rates
+
+# covid.time.series <- reports
+# View(covid.time.series)
+#write.csv(covid.time.series, "E:/UCSD/2020-2021 Senior/PSYC 201 Project/CJHU Databse/covid time series version 1.csv")
+
+```
+
+
+## Cleaning Google mobility data
+
+Importing Google mobility dataset
+```{r}
+US_Region_2020_mobility <- read.csv( "./datasets/2020_US_Region_Mobility_Report.csv", header=T, na.strings=c("","NA"))
+```
+
+Cleaning mobility dataset
+```{r, message=FALSE}
+US_State_2020_mobility<- US_Region_2020_mobility %>% filter(sub_region_2 != "Null")
+US_State_2020_mobility_without_county <- US_State_2020_mobility %>% filter(iso_3166_2_code != "Null")
+
+# unique(US_State_2020_mobility_without_county$sub_region_1)
+US_State_2020_mobility_without_county$date <- as.Date(US_State_2020_mobility_without_county$date, "%m/%d/%y")
+
+
+month <- as.numeric(format(US_State_2020_mobility_without_county$date, "%m"))
+
+StateMonthMobility <- US_State_2020_mobility_without_county %>% mutate(month = month)
+
+
+StateMonthmobility <- StateMonthMobility %>% filter(retail_and_recreation_percent_change_from_baseline != "NA")%>%
+  filter(grocery_and_pharmacy_percent_change_from_baseline != "NA")%>%
+  filter(parks_percent_change_from_baseline != "NA")%>%
+  filter(transit_stations_percent_change_from_baseline!= "NA")%>%
+  filter(workplaces_percent_change_from_baseline!= "NA")%>%
+  filter(residential_percent_change_from_baseline!= "NA")
+
+StateMonthMobility2 <- StateMonthMobility %>%
+  group_by(month,sub_region_1) %>%
+  summarise(mean_retial_and_recreation_percent_change =
+              mean(retail_and_recreation_percent_change_from_baseline),
+            mean_grocery_and_pharmacy_percent_change =
+              mean(grocery_and_pharmacy_percent_change_from_baseline),
+            mean_parks_percent_change = mean(parks_percent_change_from_baseline),
+            mean_transit_stations_percent_change =
+              mean(transit_stations_percent_change_from_baseline),
+            mean_workplaces_percent_change =
+              mean(workplaces_percent_change_from_baseline),
+            mean_residential_percent_change=
+              mean(residential_percent_change_from_baseline))
+```
+
+## combining covid and mobility dataset
+```{r}
+```
+
+
+## biweekly binning 
+```{r}
+
+
+```
+
+
+
+# Data analysis
+
+## PCA 
+
+### PCA imputation 
+```{r}
+mobility.active.rates <- mobility.active.rates %>%
+  group_by(state) %>%
+  # double check on weighting method 
+  mutate(parks_percent_change_from_baseline = na_ma(parks_percent_change_from_baseline, weighting = "simple"),
+         transit_stations_percent_change_from_baseline = na_ma(transit_stations_percent_change_from_baseline, weighting = "simple"))
+
+library(robustHD)
+mobility.active.rates[,3:8] = standardize(mobility.active.rates[,3:8])
+
+mobility.active.rates <- mobility.active.rates %>% 
+  filter(date >= as.Date("2020-04-19")) 
+
+glimpse(mobility.active.rates)
+```
+
+### PCA calculation 
+PCA calculation
+```{r}
+library(missMDA)
+# filling missing data using iterative imputation
+#nb <- estim_ncpPCA(mobility.active.rates[,3:7], method.cv = "Kfold", verbose = FALSE) # estimate the number of components from incomplete data 
+
+#(available methods include GCV to approximate CV)
+#nb$ncp #4
+
+# mobility.active.comp <- imputePCA(mobility.active.rates[,3:7], ncp = nb$ncp) # iterativePCA algorithm
+
+mobility.pca <- prcomp(mobility.active.rates[,3:7], center = TRUE, scale = TRUE)
+#mobility.pca$x[,"PC1"]
+mobility.pca$rotation <- mobility.pca$rotation
+mobility.pca$x <- mobility.pca$x # negation necessary?
+#biplot(mobility.pca, scale = 0)
+
+# combine imputed data with growth rate 
+#mobility.active.rates.imputed <- data.frame(mobility.active.comp$completeObs) %>% 
+#  cbind(mobility.active.rates[,c(1,2)], ., mobility.active.rates[,c(9,10,11,12)])
+# add PC1 as pca
+mobility.active.rates$mobility.pca = mobility.pca$x[,"PC1"]
+
+glimpse(mobility.active.rates)
+```
+
+
+
+## residual to residual analysis 
+```{r}
+# add states to the lm() model?
+mobility.active.country.lm <- lm(growth.rate.avg ~ mobility.pca.avg, data = mobility.active.rates.summary)
+mobility.active.country.res <- residuals(mobility.active.country.lm)
+# retail and recreation
+retail.active.country.lm <- lm(retail.recreation.avg ~ mobility.pca.avg, data = mobility.active.rates.summary)
+retail.bottom.res <- residuals(retail.active.country.lm)
+# below is lm(residual ~ residual)
+retail.country.lm <- lm(mobility.active.country.res ~ retail.bottom.res)
+retail.country.sum <- summary(retail.country.lm)
+# r squared = 0.1026
+
+
+# grocery and pharmacy
+grocery.pharmacy.mobility.country.lm <- lm(grocery.pharmacy.avg ~ mobility.pca.avg, data = mobility.active.rates.summary)
+grocery.pharmacy.mobility.country.res <- residuals(grocery.pharmacy.mobility.country.lm)
+# below is lm(residual ~ residual)
+grocery.country.lm <- lm(mobility.active.country.res ~ grocery.pharmacy.mobility.country.res)
+grocery.country.sum <- summary(grocery.country.lm)
+# r squared =   0.01809
+
+# parks
+parks.mobility.country.lm <- lm(parks.avg ~ mobility.pca.avg, data = mobility.active.rates.summary)
+# below is lm(residual ~ residual)
+parks.mobility.country.res <- residuals(parks.mobility.country.lm)
+parks.country.lm <- lm(mobility.active.country.res ~ parks.mobility.country.res)
+parks.country.sum <- summary(parks.country.lm)
+# r squared = 0.07035
+
+# transit
+transit.mobility.country.lm <- lm(transit.avg ~ mobility.pca.avg, data = mobility.active.rates.summary)
+# below is lm(residual ~ residual)
+transit.mobility.country.res <- residuals(transit.mobility.country.lm)
+transit.country.lm <- lm(mobility.active.country.res ~ transit.mobility.country.res)
+transit.country.sum <- summary(transit.country.lm)
+# r squared = 0.0005598
+
+# workplace
+workplace.mobility.country.lm <- lm(workplace.avg ~ mobility.pca.avg, data = mobility.active.rates.summary)
+workplace.mobility.country.res <- residuals(workplace.mobility.country.lm)
+# below is lm(residual ~ residual)
+workplace.country.lm <- lm(mobility.active.country.res ~ workplace.mobility.country.res)
+workplace.country.sum <- summary(workplace.country.lm)
+# r squared =  0.0495
+```
+
+
+
+
+
+
+
+
+
+
+
