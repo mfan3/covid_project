@@ -48,16 +48,15 @@ covid.confirmed.raw <- read_csv("./datasets/csse_covid_19_time_series/time_serie
 cleaning JHU covid confirmed historical dateset
 ```{r, message=FALSE}
 covid.confirmed <- covid.confirmed.raw %>%
-  
-  select(-c(UID, iso2, iso3, code3, FIPS, Admin2, Country_Region, Lat, Long_, Combined_Key)) %>%
+  select(-c(UID, iso2, iso3, code3, FIPS, Country_Region, Lat, Long_, Combined_Key)) %>%
   rename(state = Province_State) %>%
-  group_by(state) %>% # Specify group indicator
-  summarise(across(everything(), sum)) %>% # Specify column
-  pivot_longer(-c(state),
+  group_by(Admin2) %>% # Specify group indicator
+  # summarise(across(everything(), sum)) %>% # Specify column
+  pivot_longer(-c(state, Admin2),
                names_to = "date",
                values_to = "cumulative.confirmed.cases") %>%
   filter(state %in% c(state.name, "District of Columbia")) %>%
-  group_by(state) %>%
+  group_by(Admin2) %>%
   mutate(confirmed.cases = cumulative.confirmed.cases - lag(cumulative.confirmed.cases),
          date = as.Date(date, format = "%m/%d/%y"),
          confirmed.cases = replace_na(confirmed.cases, 0))
@@ -74,7 +73,8 @@ while (any(covid.confirmed$confirmed.cases < 0)) {
 }
 
 # combining death and confirmed into one dataset
-covid <- covid.deaths %>% inner_join(covid.confirmed, by = c("state","date"))
+# covid <- covid.deaths %>% inner_join(covid.confirmed, by = c("state","date"))
+unique(covid.confirmed$date)
 ```
 
 Looping through dates

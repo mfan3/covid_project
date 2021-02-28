@@ -195,37 +195,6 @@ while (any(covid.confirmed$confirmed.cases < 0)) {
 covid <- covid.deaths %>% inner_join(covid.confirmed, by = c("state","date"))
 ```
 
-```{r, message=FALSE}
-covid.confirmed <- covid.confirmed.raw %>%
-  select(-c(UID, iso2, iso3, code3, FIPS, Country_Region, Lat, Long_, Combined_Key)) %>%
-  rename(state = Province_State) %>%
-  group_by(Admin2) %>% # Specify group indicator
-  # summarise(across(everything(), sum)) %>% # Specify column
-  pivot_longer(-c(state, Admin2),
-               names_to = "date",
-               values_to = "cumulative.confirmed.cases") %>%
-  filter(state %in% c(state.name, "District of Columbia")) %>%
-  group_by(Admin2) %>%
-  mutate(confirmed.cases = cumulative.confirmed.cases - lag(cumulative.confirmed.cases),
-         date = as.Date(date, format = "%m/%d/%y"),
-         confirmed.cases = replace_na(confirmed.cases, 0))
-
-# fix negative cumulative cases
-while (any(covid.confirmed$confirmed.cases < 0)) {
-  covid.confirmed <- covid.confirmed %>%
-    mutate(cumulative.confirmed.cases = ifelse(cumulative.confirmed.cases < lag(cumulative.confirmed.cases),
-                                         lag(cumulative.confirmed.cases), # if smaller than previous
-                                         cumulative.confirmed.cases), # if not
-           cumulative.confirmed.cases = replace_na(cumulative.confirmed.cases, 0),
-           confirmed.cases = cumulative.confirmed.cases - lag(cumulative.confirmed.cases),
-           confirmed.cases = replace_na(confirmed.cases, 0))
-}
-
-# combining death and confirmed into one dataset
-# covid <- covid.deaths %>% inner_join(covid.confirmed, by = c("state","date"))
-unique(covid.confirmed$date)
-```
-
 Looping through dates
 ```{r, message=FALSE}
 dates <- format(seq(from = as.Date("2020/04/13"), to = as.Date("2021/02/20"), by = "day"), "%m-%d-%Y")
