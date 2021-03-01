@@ -19,6 +19,11 @@ In this file, we cleaned and explored our following datasets:
 The JHU COVID-19 date provided us with historical covid progressions. Mobility data provided us relevant information during the pandemic. All datasets are analyzed on state-level.
 
 # Data Cleaning 
+Importing packages
+```{r, message=FALSE}
+library(tidyverse)
+library(dplyr)     
+```
 
 ## SVI data for county population 
 selecting relevant indices (refer to codebook)
@@ -28,10 +33,8 @@ svi.data <- svi.raw %>%
   select(STATE,
          COUNTY,
          FIPS,
-         E_TOTPOP) 
-
-svi.data$FIPS = as.numeric(svi.data$FIPS)
-
+         E_TOTPOP) %>% 
+  mutate(FIPS = as.numeric(FIPS))
 
 ```
 
@@ -40,7 +43,7 @@ svi.data$FIPS = as.numeric(svi.data$FIPS)
 
 loading JHU covid confirmed historical dateset
 ```{r, message=FALSE}
-covid.confirmed.raw <- read_csv("./datasets/csse_covid_19_time_series/time_series_covid19_confirmed_US.csv")
+covid.confirmed.raw <- data.table::fread("./datasets/csse_covid_19_time_series/time_series_covid19_confirmed_US.csv")
 # glimpse(covid.confirmed.raw)
 # cumulative confirmed cases on county level 
 ```
@@ -74,12 +77,11 @@ while (any(covid.confirmed$confirmed.cases < 0)) {
 
 # combining death and confirmed into one dataset
 # covid <- covid.deaths %>% inner_join(covid.confirmed, by = c("state","date"))
-unique(covid.confirmed$date)
 ```
 
 Looping through dates
 ```{r, message=FALSE}
-dates <- format(seq(from = as.Date("2020/04/13"), to = as.Date("2021/02/21"), by = "day"), "%m-%d-%Y")
+dates <- format(seq(from = as.Date("2020/04/13"), to = as.Date("2021/02/20"), by = "day"), "%m-%d-%Y")
 date = "04-12-2020"
 reports.raw <- read_csv(paste("./datasets/csse_covid_19_daily_reports_us/", date, ".csv", sep = ""))
 report <- reports.raw %>%
@@ -99,21 +101,35 @@ report <- reports.raw %>%
          incident.rate = incident.rate/1000,
          # based on documentation (100k population)
          testing.rate = testing.rate/1000) %>%
-    select(-c(people.hospitalized, hospitalization.rate, recovered.cases))
+  select(-c(people.hospitalized, hospitalization.rate, recovered.cases))
 
 
 
 for (date in dates){
   reports.raw <- read_csv(paste("./datasets/csse_covid_19_daily_reports_us/", date, ".csv", sep = ""))
+  if("People_Tested" %in% colnames(reports.raw)){
+    reports.raw <- reports.raw %>% 
+      rename(people.tested = People_Tested)
+  } else {
+    reports.raw <- reports.raw %>% 
+      rename(people.tested = Total_Test_Results)
+  }
+  
+  if("Mortality_Rate" %in% colnames(reports.raw)){
+    reports.raw <- reports.raw %>% 
+      rename(mortality.rate = Mortality_Rate)
+  } else{
+    reports.raw <- reports.raw %>% 
+      rename(mortality.rate = Case_Fatality_Ratio)
+  }
+  
   rpt <- reports.raw %>%
     select(-c(Country_Region, Last_Update, Lat, Long_, Confirmed, Deaths, FIPS, UID, ISO3)) %>%
     rename(state = Province_State,
            recovered.cases = Recovered,
            active.cases = Active,
            incident.rate = Incident_Rate,
-           people.tested = People_Tested,
            people.hospitalized = People_Hospitalized,
-           mortality.rate = Mortality_Rate,
            testing.rate = Testing_Rate,
            hospitalization.rate = Hospitalization_Rate) %>%
     filter(state %in% c(state.name, "District of Columbia")) %>%
