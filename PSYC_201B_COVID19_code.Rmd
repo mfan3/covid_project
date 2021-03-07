@@ -147,7 +147,7 @@ Cleaning mobility dataset
 
 ## growth rate 
 ```{r}
-covid.time.series <- readRDS('datasets/covid time series version 1.Rds')
+# covid.time.series <- readRDS('datasets/covid time series version 1.Rds')
 # dim(covid.time.series) # 58818935, 11
 # 
 # # active rates df
@@ -177,26 +177,33 @@ covid.time.series <- readRDS('datasets/covid time series version 1.Rds')
 
 ## biweekly binning 
 ```{r}
-# covid.time.series <- readRDS("datasets/covid time series version 2.Rds")
+covid.time.series <- readRDS("datasets/covid time series version 2.Rds")
 # # dim(covid.time.series) # 46234618, 11
-# 
-# covid.time.series <- covid.time.series %>%
-#   mutate(month = months(date),
-#          week = format(date, format = '%W'),
-#          # the following code converts to biweekly
-#          biweek = 14 * (as.numeric(date - min(date)) %/% 14) + min(date)) %>%
-#   group_by(county, biweek) %>%
-#   summarise(confirmed.avg = mean(confirmed.rates, na.rm=TRUE),
-#             retail.recreation.avg = mean(retail_and_recreation_percent_change_from_baseline, na.rm=TRUE),
-#             grocery.pharmacy.avg = mean(grocery_and_pharmacy_percent_change_from_baseline, na.rm=TRUE),
-#             parks.avg = mean(parks_percent_change_from_baseline, na.rm=TRUE),
-#             transit.avg = mean(transit_stations_percent_change_from_baseline, na.rm=TRUE),
-#             workplace.avg = mean(workplaces_percent_change_from_baseline, na.rm=TRUE))
-# 
-# dim(covid.time.series)
-# saveRDS(covid.time.series, file = "datasets/covid time series version 3.Rds")
+
+covid.time.series <- covid.time.series %>%
+  mutate(month = months(date),
+         week = format(date, format = '%W'),
+         # the following code converts to biweekly
+         biweek = 14 * (as.numeric(date - min(date)) %/% 14) + min(date)) %>%
+  group_by(county, biweek) %>%
+  summarise(confirmed.avg = mean(confirmed.rates, na.rm=TRUE),
+            retail.recreation.avg = mean(retail_and_recreation_percent_change_from_baseline, na.rm=TRUE),
+            grocery.pharmacy.avg = mean(grocery_and_pharmacy_percent_change_from_baseline, na.rm=TRUE),
+            parks.avg = mean(parks_percent_change_from_baseline, na.rm=TRUE),
+            transit.avg = mean(transit_stations_percent_change_from_baseline, na.rm=TRUE),
+            workplace.avg = mean(workplaces_percent_change_from_baseline, na.rm=TRUE),
+            growth.rate.avg = mean(growth.rate, na.rm = TRUE))
+
+dim(covid.time.series) # 32242, 8
+saveRDS(covid.time.series, file = "datasets/covid time series version 3.Rds")
 ```
 
+### plot to see which imputation to use (simple)
+```{r}
+# covid.time.series[1:1000,] %>%
+#   ggplot(aes(x = date, y = confirmed.rates, color = county)) +
+#   geom_line()
+```
 
 
 # Data analysis
