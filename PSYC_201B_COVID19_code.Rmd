@@ -24,6 +24,7 @@ Importing packages
 library(tidyverse)
 library(dplyr)
 library(zoo)
+library(imputeTS)
 ```
 
 ## SVI data for county population 
@@ -146,7 +147,7 @@ Cleaning mobility dataset
 
 ## growth rate 
 ```{r}
-covid.time.series <- readRDS("datasets/covid time series version 1.Rds")
+covid.time.series <- readRDS('datasets/covid time series version 1.Rds')
 # dim(covid.time.series) # 58818935, 11
 # 
 # # active rates df
@@ -205,22 +206,59 @@ covid.time.series <- readRDS("datasets/covid time series version 1.Rds")
 # start running here~~~~~!!!!
 covid.time.series <- readRDS("datasets/covid time series version 3.Rds")
 # dim(covid.time.series) # 32242, 8
+# count NaN ratio?
+
+covid.time.series.1 <- covid.time.series %>% na.omit
+covid.time.series.2 <- covid.time.series %>%
+  select(-parks.avg)
+covid.time.series.3 <- covid.time.series.2 %>% na.omit
+l1 = unique(covid.time.series$county)
+l3 = unique(covid.time.series.3$county)
+# check fluctuations in data
+ggplot(covid.time.series, aes(x = biweek, y = confirmed.avg)) + 
+  geom_line() 
+
+covid.time.series.nas <- covid.time.series.2 %>%
+  group_by(county) %>%
+  summarise_each(funs(sum(is.na(.)))) %>%
+  filter(retail.recreation.avg <= 2 & grocery.pharmacy.avg <= 2 & transit.avg <= 2 & workplace.avg <= 2)
+
+county_nonnas = c(covid.time.series.nas$county)
+
+covid.time.series.nonnas <- covid.time.series.2 %>% 
+  filter(county %in% county_nonnas) %>%
+  group_by(county) %>%
+#  filter(rowSums(covid.time.series.nonnas, ) > 2)
+# Barber County has only 2 data points 
+  filter(county != "Barber County") %>%
+  filter(county != "Furnas County") %>%
+  filter(county != "Hartley County") %>%
+  filter(county != "Ouray County") %>%
+  filter(county != "Wirt County")
+
+sapply(covid.time.series.nonnas, function(x) sum(is.na(x)))
+# data3 <- data[rowSums(is.na(data)) == 0, ]
+# covid.time.series.nas <- covid.time.series.nonnas[, colSums(is.na(covid.time.series.nonnas)) <= 2]
+
 ```
 ### PCA imputation 
 ```{r}
-mobility.active.rates <- mobility.active.rates %>%
-  group_by(state) %>%
-  # double check on weighting method 
-  mutate(parks_percent_change_from_baseline = na_ma(parks_percent_change_from_baseline, weighting = "simple"),
-         transit_stations_percent_change_from_baseline = na_ma(transit_stations_percent_change_from_baseline, weighting = "simple"))
+covid.time.series.imputed <- covid.time.series.nonnas %>%
+  group_by(county) %>%
+  # a lot of fluctuations so simple avg
+  mutate(retail.recreation.avg = na_ma(retail.recreation.avg, weighting = "simple"),
+         grocery.pharmacy.avg = na_ma(grocery.pharmacy.avg, weighting = "simple"),
+         transit.avg = na_ma(transit.avg, weighting = "simple"),
+         workplace.avg = na_ma(workplace.avg, weighting = "simple"))
 
 library(robustHD)
-mobility.active.rates[,3:8] = standardize(mobility.active.rates[,3:8])
+covid.time.series.imputed[,3:7] = standardize(covid.time.series.imputed[,3:7])
 
-mobility.active.rates <- mobility.active.rates %>% 
-  filter(date >= as.Date("2020-04-19")) 
+# why filter?
+#mobility.active.rates <- mobility.active.rates %>% 
+#  filter(date >= as.Date("2020-04-19")) 
 
-glimpse(mobility.active.rates)
+glimpse(covid.time.series.imputed)
 ```
 
 ### PCA calculation 
@@ -235,19 +273,19 @@ library(missMDA)
 
 # mobility.active.comp <- imputePCA(mobility.active.rates[,3:7], ncp = nb$ncp) # iterativePCA algorithm
 
-mobility.pca <- prcomp(mobility.active.rates[,3:7], center = TRUE, scale = TRUE)
+covid.mobility.pca <- prcomp(covid.time.series.imputed[,3:7], center = TRUE, scale = TRUE)
 #mobility.pca$x[,"PC1"]
-mobility.pca$rotation <- mobility.pca$rotation
-mobility.pca$x <- mobility.pca$x # negation necessary?
+covid.mobility.pca$rotation <- covid.mobility.pca$rotation
+covid.mobility.pca$x <- covid.mobility.pca$x # negation necessary?
 #biplot(mobility.pca, scale = 0)
 
 # combine imputed data with growth rate 
 #mobility.active.rates.imputed <- data.frame(mobility.active.comp$completeObs) %>% 
 #  cbind(mobility.active.rates[,c(1,2)], ., mobility.active.rates[,c(9,10,11,12)])
 # add PC1 as pca
-mobility.active.rates$mobility.pca = mobility.pca$x[,"PC1"]
+covid.time.series.imputed$covid.mobility.pca = covid.mobility.pca$x[,"PC1"]
 
-glimpse(mobility.active.rates)
+glimpse(covid.time.series.imputed)
 ```
 
 
@@ -255,10 +293,10 @@ glimpse(mobility.active.rates)
 ## residual to residual analysis 
 ```{r}
 # add states to the lm() model?
-mobility.active.country.lm <- lm(growth.rate.avg ~ mobility.pca.avg, data = mobility.active.rates.summary)
+mobility.active.country.lm <- lm(growth.rate.avg ~ mobility.pca.avg, data = covid.time.series.imputed)
 mobility.active.country.res <- residuals(mobility.active.country.lm)
 # retail and recreation
-retail.active.country.lm <- lm(retail.recreation.avg ~ mobility.pca.avg, data = mobility.active.rates.summary)
+retail.active.country.lm <- lm(retail.recreation.avg ~ mobility.pca.avg, data = covid.time.series.imputed)
 retail.bottom.res <- residuals(retail.active.country.lm)
 # below is lm(residual ~ residual)
 retail.country.lm <- lm(mobility.active.country.res ~ retail.bottom.res)
@@ -267,7 +305,7 @@ retail.country.sum <- summary(retail.country.lm)
 
 
 # grocery and pharmacy
-grocery.pharmacy.mobility.country.lm <- lm(grocery.pharmacy.avg ~ mobility.pca.avg, data = mobility.active.rates.summary)
+grocery.pharmacy.mobility.country.lm <- lm(grocery.pharmacy.avg ~ mobility.pca.avg, data = covid.time.series.imputed)
 grocery.pharmacy.mobility.country.res <- residuals(grocery.pharmacy.mobility.country.lm)
 # below is lm(residual ~ residual)
 grocery.country.lm <- lm(mobility.active.country.res ~ grocery.pharmacy.mobility.country.res)
@@ -275,7 +313,7 @@ grocery.country.sum <- summary(grocery.country.lm)
 # r squared =   0.01809
 
 # parks
-parks.mobility.country.lm <- lm(parks.avg ~ mobility.pca.avg, data = mobility.active.rates.summary)
+parks.mobility.country.lm <- lm(parks.avg ~ mobility.pca.avg, data = covid.time.series.imputed)
 # below is lm(residual ~ residual)
 parks.mobility.country.res <- residuals(parks.mobility.country.lm)
 parks.country.lm <- lm(mobility.active.country.res ~ parks.mobility.country.res)
@@ -283,7 +321,7 @@ parks.country.sum <- summary(parks.country.lm)
 # r squared = 0.07035
 
 # transit
-transit.mobility.country.lm <- lm(transit.avg ~ mobility.pca.avg, data = mobility.active.rates.summary)
+transit.mobility.country.lm <- lm(transit.avg ~ mobility.pca.avg, data = covid.time.series.imputed)
 # below is lm(residual ~ residual)
 transit.mobility.country.res <- residuals(transit.mobility.country.lm)
 transit.country.lm <- lm(mobility.active.country.res ~ transit.mobility.country.res)
@@ -291,7 +329,7 @@ transit.country.sum <- summary(transit.country.lm)
 # r squared = 0.0005598
 
 # workplace
-workplace.mobility.country.lm <- lm(workplace.avg ~ mobility.pca.avg, data = mobility.active.rates.summary)
+workplace.mobility.country.lm <- lm(workplace.avg ~ mobility.pca.avg, data = covid.time.series.imputed)
 workplace.mobility.country.res <- residuals(workplace.mobility.country.lm)
 # below is lm(residual ~ residual)
 workplace.country.lm <- lm(mobility.active.country.res ~ workplace.mobility.country.res)
