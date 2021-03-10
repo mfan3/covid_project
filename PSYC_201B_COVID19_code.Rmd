@@ -205,6 +205,8 @@ covid.time.series <- readRDS("datasets/covid time series.Rds")
 dim(covid.time.series) # 985962, 12
 # count NaN ratio?
 
+length(c(unique(covid.time.series$county))) #3254
+
 sum(is.na(covid.time.series$growth.rate))
 
 covid.time.series.1 <- covid.time.series %>% na.omit
@@ -282,7 +284,7 @@ covid.mobility.pca$x <- covid.mobility.pca$x # negation necessary?
 #  cbind(mobility.active.rates[,c(1,2)], ., mobility.active.rates[,c(9,10,11,12)])
 # add PC1 as pca
 covid.time.series.imputed$covid.mobility.pca = covid.mobility.pca$x[,"PC1"]
-
+# equal weight 
 glimpse(covid.time.series.imputed)
 ```
 
@@ -317,7 +319,7 @@ retail.bottom.res <- residuals(retail.active.country.lm)
 # below is lm(residual ~ residual)
 retail.country.lm <- lm(mobility.active.country.res ~ retail.bottom.res)
 retail.country.sum <- summary(retail.country.lm)
-# r squared = 0.1026
+# r squared = 3.911e-05, p = 0.381
 
 
 # grocery and pharmacy
@@ -326,14 +328,14 @@ grocery.pharmacy.mobility.country.res <- residuals(grocery.pharmacy.mobility.cou
 # below is lm(residual ~ residual)
 grocery.country.lm <- lm(mobility.active.country.res ~ grocery.pharmacy.mobility.country.res)
 grocery.country.sum <- summary(grocery.country.lm)
-# r squared =   0.01809
+# r squared =   0.003586, p <2e-16 ***
 
 # parks
-parks.mobility.country.lm <- lm(parks.avg ~ mobility.pca.avg, data = covid.final)
+#parks.mobility.country.lm <- lm(parks.avg ~ mobility.pca.avg, data = covid.final)
 # below is lm(residual ~ residual)
-parks.mobility.country.res <- residuals(parks.mobility.country.lm)
-parks.country.lm <- lm(mobility.active.country.res ~ parks.mobility.country.res)
-parks.country.sum <- summary(parks.country.lm)
+#parks.mobility.country.res <- residuals(parks.mobility.country.lm)
+#parks.country.lm <- lm(mobility.active.country.res ~ parks.mobility.country.res)
+#parks.country.sum <- summary(parks.country.lm)
 # r squared = 0.07035
 
 # transit
@@ -342,7 +344,7 @@ transit.mobility.country.lm <- lm(transit.avg ~ mobility.pca.avg, data = covid.f
 transit.mobility.country.res <- residuals(transit.mobility.country.lm)
 transit.country.lm <- lm(mobility.active.country.res ~ transit.mobility.country.res)
 transit.country.sum <- summary(transit.country.lm)
-# r squared = 0.0005598
+# r squared = 9.925e-05, p = 0.163
 
 # workplace
 workplace.mobility.country.lm <- lm(workplace.avg ~ mobility.pca.avg, data = covid.final)
@@ -350,7 +352,11 @@ workplace.mobility.country.res <- residuals(workplace.mobility.country.lm)
 # below is lm(residual ~ residual)
 workplace.country.lm <- lm(mobility.active.country.res ~ workplace.mobility.country.res)
 workplace.country.sum <- summary(workplace.country.lm)
-# r squared =  0.0495
+# r squared =  0.0042, p<2e-16 ***
+
+residual.lm <- lm(growth.rate.avg ~ mobility.pca.avg + retail.bottom.res + grocery.pharmacy.mobility.country.res + transit.mobility.country.res + workplace.mobility.country.res, data = covid.final)
+summary(residual.lm)
+summary(mobility.active.country.lm)
 ```
 
 
