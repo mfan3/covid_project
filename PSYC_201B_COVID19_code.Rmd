@@ -438,7 +438,7 @@ covid.time.series.imputed %>%
   ggplot(aes(color = county)) +
   geom_point(aes(x = date, y = covid.mobility.pca), size = 0.5, alpha = 0.2) +
   geom_smooth(aes(x = date, y = covid.mobility.pca), se  = FALSE, 
-              formula = y ~ poly(x, 2),
+              formula = y ~ poly(x, 2)
               # span = 1
               ) +
   # geom_line(aes(x = date, y = SMA(covid.mobility.pca, n=20))) + 
