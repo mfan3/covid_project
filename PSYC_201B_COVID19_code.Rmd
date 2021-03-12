@@ -154,25 +154,26 @@ covid.mob.svi <- readRDS('datasets/covid mobility svi.Rds')
 # active rates df
 covid.mob.svi <- covid.mob.svi %>%
   mutate(confirmed.rates = 100 * confirmed.cases / population) %>%
-  select(state, county, date, retail_and_recreation_percent_change_from_baseline, grocery_and_pharmacy_percent_change_from_baseline, parks_percent_change_from_baseline, transit_stations_percent_change_from_baseline, workplaces_percent_change_from_baseline, confirmed.rates) %>%
-  filter(date >= as.Date("2020-04-13") & date <= as.Date("2021-02-15"))
-
+  select(state, county, date, cumulative.confirmed.cases, confirmed.cases, population, retail_and_recreation_percent_change_from_baseline, grocery_and_pharmacy_percent_change_from_baseline, parks_percent_change_from_baseline, transit_stations_percent_change_from_baseline, workplaces_percent_change_from_baseline, confirmed.rates) %>%
+  filter(date >= as.Date("2020-04-13") & date <= as.Date("2020-12-31")) %>%
+  filter(!is.na(population)) 
+# sum(is.na(covid.mob.svi$population))
 # dim(covid.mob.svi) # 1005486, 9
 
 covid.time.series <- covid.mob.svi %>%
   mutate(county = paste(state, county)) %>%
   group_by(county) %>%
-  mutate(avg.3days = (rollsumr(confirmed.rates, k = 3, fill = NA))/3 + 0.0001,
-         avg.7days = (rollsumr(confirmed.rates, k = 7, fill = NA))/7 + 0.0001) 
+  mutate(avg.3days = (rollsumr(confirmed.rates, k = 3, fill = NA))/3 ,
+         avg.7days = (rollsumr(confirmed.rates, k = 7, fill = NA))/7) 
 
 covid.time.series <- covid.time.series %>%
   group_by(county) %>%
-  mutate(growth.rate = log(avg.3days)/log(avg.7days)) %>% # other ways of calculating growth rate?
+  mutate(growth.rate = log(avg.3days)-log(avg.7days)) %>% # other ways of calculating growth rate?
   # difference between the 2 numbers or the log of the ratio 
   filter(date >= as.Date("2020-04-19")) %>%
   group_by(county) %>%
-  mutate(growth.rate.lag = lag(growth.rate, 14)) %>% # 2020-04-26 for one week lag
-  filter(date >= as.Date("2020-05-03"))
+  mutate(growth.rate.lag = lag(growth.rate, 11)) %>% # 2020-04-26 for one week lag
+  filter(date >= as.Date("2020-04-30")) 
 
 sum(is.na(covid.time.series$growth.rate)) # 46056
 
@@ -203,12 +204,20 @@ saveRDS(covid.time.series, file = "datasets/covid time series.Rds")
 
 # Data analysis
 
+
 ## PCA 
 ```{r, message=FALSE}
 # start running here~~~~~!!!!
 covid.time.series <- readRDS("datasets/covid time series.Rds")
 dim(covid.time.series) # 985962, 12
 # count NaN ratio?
+
+# filter out small population counties 
+covid.time.series <- covid.time.series %>%
+  filter(population > 1000000) 
+range(covid.time.series$population)
+
+
 
 length(c(unique(covid.time.series$county))) #3254
 
@@ -224,10 +233,10 @@ l3 = unique(covid.time.series.3$county)
 covid.time.series.nas <- covid.time.series.2 %>%
   group_by(county) %>% 
   summarise_each(funs(sum(is.na(.)))) %>%
-  filter(retail_and_recreation_percent_change_from_baseline <= 285 & 
-           grocery_and_pharmacy_percent_change_from_baseline <= 285 & 
-           transit_stations_percent_change_from_baseline <= 285 & 
-           workplaces_percent_change_from_baseline <= 285)
+  filter(retail_and_recreation_percent_change_from_baseline <= 240 & 
+           grocery_and_pharmacy_percent_change_from_baseline <= 240 & 
+           transit_stations_percent_change_from_baseline <= 240 & 
+           workplaces_percent_change_from_baseline <= 240)
 
 county_nonnas = c(covid.time.series.nas$county)
 length(county_nonnas) # 892
@@ -301,18 +310,38 @@ covid.final <- covid.time.series.imputed %>%
             transit.avg = mean(transit_stations_percent_change_from_baseline, na.rm=TRUE),
             workplace.avg = mean(workplaces_percent_change_from_baseline, na.rm=TRUE),
             mobility.pca.avg = mean(covid.mobility.pca, na.rm = TRUE),
-            growth.rate.avg = mean(growth.rate, na.rm = TRUE))
+            growth.rate.avg = mean(growth.rate, na.rm = TRUE)) 
 
-covid.final
+covid.small.county <- c(unique(covid.final[covid.final$growth.rate.avg > 1.3,]$county))
 
-covid.time.series.imputed %>%
-  ggplot(aes(x = retail_and_recreation_percent_change_from_baseline, y = growth.rate)) +
-  geom_point()
+# exclude county with impossible large gr 
+covid.final <- covid.final %>%
+  filter(!county %in% covid.small.county)
+
+
+# covid.final[covid.final$growth.rate.avg > 1.5,]
+# covid.final[covid.final$county== 'Texas Midland County',]
+# covid.time.series[covid.time.series$county== 'Texas Midland County',]
+
+
+
+covid.large.county <- covid.time.series.imputed %>% 
+  arrange(desc(population)) %>%
+  pull(county)
+covid.large.county = c(unique(covid.large.county))
+covid.large.county = covid.large.county[1:25]
 
 covid.final %>%
-  ggplot(aes(x = retail.recreation.avg, y = growth.rate.avg)) +
-  geom_point()
+  subset(county %in% covid.large.county) %>% 
+  subset(!county %in% c("New York Suffolk County", "New York Queens County", "California Los Angeles County", "Pennsylvania Philadelphia County", "Texas Bexar County")) %>%
+  group_by(county) %>%
+  ggplot(aes(x = mobility.pca.avg, y = growth.rate.avg, color = county)) +
+  geom_point(alpha = 0.2) +
+  geom_smooth(method = "lm", se = FALSE)+
+  theme(legend.position = 'none')
 
+
+# ("New York Suffolk County", "New York Queens County", "California Los Angeles County", "Pennsylvania Philadelphia County", "Texas Bextar County"))
 ```
 
 ## residual to residual analysis 
