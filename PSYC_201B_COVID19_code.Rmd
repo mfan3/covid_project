@@ -150,7 +150,7 @@ StateMonthMobility <- US_Region_2020_mobility %>%
 ```{r, message=FALSE, warning=FALSE}
 covid.mob.svi <- readRDS('datasets/covid mobility svi.Rds')
 # dim(covid.mob.svi) # 1311362, 11
-
+# filter out large population counties 
 # active rates df
 covid.mob.svi <- covid.mob.svi %>%
   mutate(confirmed.rates = 100 * confirmed.cases / population) %>%
@@ -163,11 +163,12 @@ covid.time.series <- covid.mob.svi %>%
   mutate(county = paste(state, county)) %>%
   group_by(county) %>%
   mutate(avg.3days = (rollsumr(confirmed.rates, k = 3, fill = NA))/3 + 0.0001,
-         avg.7days = (rollsumr(confirmed.rates, k = 7, fill = NA))/7 + 0.0001)
+         avg.7days = (rollsumr(confirmed.rates, k = 7, fill = NA))/7 + 0.0001) 
 
 covid.time.series <- covid.time.series %>%
   group_by(county) %>%
-  mutate(growth.rate = log(avg.3days)/log(avg.7days)) %>%
+  mutate(growth.rate = log(avg.3days)/log(avg.7days)) %>% # other ways of calculating growth rate?
+  # difference between the 2 numbers or the log of the ratio 
   filter(date >= as.Date("2020-04-19")) %>%
   group_by(county) %>%
   mutate(growth.rate.lag = lag(growth.rate, 14)) %>% # 2020-04-26 for one week lag
@@ -303,12 +304,24 @@ covid.final <- covid.time.series.imputed %>%
             growth.rate.avg = mean(growth.rate, na.rm = TRUE))
 
 covid.final
+
+covid.time.series.imputed %>%
+  ggplot(aes(x = retail_and_recreation_percent_change_from_baseline, y = growth.rate)) +
+  geom_point()
+
+covid.final %>%
+  ggplot(aes(x = retail.recreation.avg, y = growth.rate.avg)) +
+  geom_point()
+
 ```
 
 ## residual to residual analysis 
 ```{r}
+library(lme4)
 # add states to the lm() model?
 mobility.active.country.lm <- lm(growth.rate.avg ~ mobility.pca.avg, data = covid.final)
+mobility.active.country.lmer <- lmer(growth.rate.avg ~ mobility.pca.avg + (1|county), data = covid.final)
+summary(mobility.active.country.lmer)
 mobility.active.country.res <- residuals(mobility.active.country.lm)
 # retail and recreation
 retail.active.country.lm <- lm(retail.recreation.avg ~ mobility.pca.avg, data = covid.final)
@@ -355,6 +368,19 @@ residual.lm <- lm(growth.rate.avg ~ mobility.pca.avg + retail.bottom.res + groce
 summary(residual.lm)
 summary(mobility.active.country.lm)
 ```
+
+```{r}
+covid.final %>%
+  ggplot(aes(x = mobility.pca.avg,y = growth.rate.avg)) + 
+  geom_point() 
+
+
+
+```
+
+
+
+
 
 
 ```{r}
