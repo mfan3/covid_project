@@ -230,7 +230,13 @@ covid.time.series <- covid.mob.svi %>%
   mutate(county = paste(state, county)) %>%
   group_by(county) %>%
   mutate(avg.3days = (rollsumr(confirmed.rates, k = 3, fill = NA))/3 + 0.5,
-         avg.7days = (rollsumr(confirmed.rates, k = 7, fill = NA))/7 + 0.5) 
+         avg.7days = (rollsumr(confirmed.rates, k = 7, fill = NA))/7 + 0.5)
+
+# covid.time.series <- covid.mob.svi %>%
+#   mutate(county = paste(state, county)) %>%
+#   group_by(county) %>%
+#   mutate(avg.3days = (rollsumr(confirmed.cases, k = 3, fill = NA))/3 + 0.5,
+#          avg.7days = (rollsumr(confirmed.cases, k = 7, fill = NA))/7 + 0.5) 
 
 lagged_days <- 11
 covid.time.series <- covid.time.series %>%
@@ -288,8 +294,8 @@ covid.time.series <- readRDS("datasets/covid time series.Rds")
 # dim(covid.time.series) # 985962, 12
 
 # filter out small population counties 
-covid.time.series <- covid.time.series %>%
-  filter(population > 100000) 
+# covid.time.series <- covid.time.series %>%
+#   filter(population > 100000) 
 range(covid.time.series$population)
 
 length(c(unique(covid.time.series$county))) # 587
@@ -423,39 +429,7 @@ covid.final %>%
 # growth rate & mobility rate by date
 ```{r}
 #install package TTR()
-library("TTR")
-covid.time.series.imputed %>%
-  filter((county %in% covid.large.county)) %>%
-  filter(date >= as.Date("2020-02-01") & date <= as.Date("2020-12-31")) %>% 
-  ggplot(aes(x = date, y = growth.rate, color = county)) +
-  geom_point(size = 0.5, alpha = 0.2) +
-  geom_smooth(se  = FALSE) 
- # theme(legend.position = 'none')
-
-# & (!county %in% covid.small.county)
-covid.time.series.imputed %>%
-  filter((county %in% covid.large.county)) %>%
-  filter(date >= as.Date("2020-02-01") & date <= as.Date("2020-12-31")) %>% 
-  ggplot(aes(color = county)) +
-  geom_point(aes(x = date, y = covid.mobility.pca), size = 0.5, alpha = 0.2) +
-  geom_smooth(aes(x = date, y = covid.mobility.pca), se  = FALSE, 
-              formula = y ~ poly(x, 2)
-              # span = 1
-              ) +
-  # geom_line(aes(x = date, y = SMA(covid.mobility.pca, n=20))) + 
-  theme(legend.position = 'none')
-
-covid.time.series.imputed %>%
-  filter((county %in% covid.large.county)) %>% 
-  # subset(!county %in% c("New York Suffolk County", "New York Queens County", "California Los Angeles County", "Pennsylvania Philadelphia County", "Texas Bextar County")) %>% 
-  ggplot(aes(x = covid.mobility.pca, y = growth.rate, color = county)) +
-  geom_point(size = 0.8, alpha = 0.2) +
-  geom_smooth(method = "lm", se  = FALSE) +
-  theme(legend.position = 'none')
-```
-
-## residual to residual analysis 
-```{r}
+# library("TTR")
 covid.time.series.replication <- covid.time.series.imputed %>%
 #  filter(date == as.Date("2020-04-16")) %>%
   arrange(desc(cumulative.confirmed.cases)) %>%
@@ -463,7 +437,113 @@ covid.time.series.replication <- covid.time.series.imputed %>%
 covid.time.series.replication = c(unique(covid.time.series.replication))
 covid.replication.states = covid.time.series.replication[1:25]
 
+covid.plots <- covid.time.series.imputed %>%
+  filter((county %in% covid.replication.states))
 
+covid.plots$county <- covid.plots$county %>% 
+  recode("Arizona Maricopa County" = "Maricopa County, AZ",
+         "California Riverside County" = "Riverside County, CA",
+         "Florida Broward County" = "Broward County, FL",
+         "Illinois Cook County" = "Cook County, IL",
+         "New Jersey Middlesex County" = "Middlesex County, NJ",
+         "New York Queens County" = "Queens County, NY",
+         "Pennsylvania Franklin County" = "Franklin County, PA",
+         "Texas Harris County" = "Harris County, TX",
+         "Washington Clark County" = "Clark County, DC",
+         "California Los Angeles County" = "Los Angeles County, CA",
+         "California San Bernardino County" = "San Bernardino County, CA",
+         "Florida Miami-Dade County" = "Miami-Dade County, FL",
+         "Nevada Clark County" = "Clark County, NV",
+         "New York Kings County" = "Kings County, NY",
+         "North Carolina Orange County" = "Orange County, NC",
+         "Texas Bexar County" = "Bexar County, TX",
+         "Texas Tarrant County" = "Tarrant County, TX",
+         "California Orange County" = "Orange County, CA",
+         "California San Diego County" = "San Diego County, CA",
+         "Florida Orange County" = "Orange County, FL",
+         "New Hampshire Hillsborough County" = "Hillsborough County, NH",
+         "New York Orange County" = "Orange County, NY",
+         "Ohio Clark County" = "Clark County, OH",
+         "Texas Dallas County" = "Dallas County, TX",
+         "Utah Salt Lake County" = "Salt Lake County, UT")
+
+badr.county <- c("New Jersey Essex County", "New York York County", "New Jersey Middlesex County", "Illinois Cook County", "New Jersey Hudson County", "New York Nassau County", "New Jersey Union County", "Massachusetts Middlesex County", "New York Suffolk County", "Florida Miami-Dade County", "New Jersey Bergen County", "New Jersey Passaic County", "Massachusetts Suffolk County", "Pennsylvania Philadelphia County", "Michigan Wayne County", "New York Westchester County", "New Jersey Monmouth County", "New York Rockland County", "Louisiana Jefferson County", "Michigan Oakland County", "New York Orange County", "California Los Angeles County", "Connecticut Fairfield County", "Louisiana Orleans County", "Texas Harris County")
+
+
+covid.time.series.imputed %>%
+  filter(date >= as.Date("2020-03-01") & date <= as.Date("2020-04-30"),
+         county %in% badr.county) %>% 
+  ggplot(aes(x = date, y = growth.rate, color = county)) +
+  geom_point(size = 0.8, alpha = 0.2) +
+  geom_smooth(se=FALSE)+
+  # stat_smooth(method = "lm", formula = y ~ poly(x, 5), 
+  #             size = 1, se=FALSE, alpha = 0.8)+
+  scale_x_date(date_breaks = "1 weeks")+
+  # scale_y_continuous(limits = c(0.95, 1.05))+
+  labs(
+    x = "Date",
+    y = "Growth Rate",
+    title = "Growth Rate over time"
+  ) + 
+  theme_bw() +
+  theme(legend.position = "none",
+        panel.grid = element_blank(),
+        plot.title = element_text(size=16, face='bold'),
+        plot.caption = element_text(size=10, face = "bold.italic"),
+        axis.title = element_text(size=10),
+        axis.text.x = element_text(angle = 50, hjust = 1))
+
+# & (!county %in% covid.small.county)
+covid.time.series.imputed %>%
+  filter(date >= as.Date("2020-02-01") & date <= as.Date("2020-12-31")) %>% 
+  ggplot(aes(x = date, y = covid.mobility.pca, color = county)) +
+  geom_point(size = 0.5, alpha = 0.2) +
+  stat_smooth(method = "lm", formula = y ~ poly(x, 8), 
+              size = 1, se=FALSE, alpha = 0.8)+
+  scale_x_date(date_breaks = "4 weeks")+
+  # scale_y_continuous(limits = c(0.95, 1.05))+
+  labs(
+    x = "Date",
+    y = "Mobility PC1",
+    title = "Mobility PC1 over time"
+  ) + 
+  theme_bw() +
+  theme(legend.position = "none",
+        panel.grid = element_blank(),
+        plot.title = element_text(size=16, face='bold'),
+        plot.caption = element_text(size=10, face = "bold.italic"),
+        axis.title = element_text(size=10),
+        axis.text.x = element_text(angle = 50, hjust = 1))
+
+covid.time.series.imputed %>% 
+  filter(date >= as.Date("2020-03-01") & date <= as.Date("2020-05-10"),
+         county %in% badr.county) %>% 
+  ggplot(aes(x = covid.mobility.pca, y = growth.rate, color = county)) +
+  geom_point(size = 0.8, alpha = 0.2) +
+  geom_smooth(method = "lm", se  = FALSE) +
+  scale_x_continuous(n.breaks = 10)+
+  scale_y_continuous(limits = c(0.75, 1.25))+
+  labs(
+    x = "Mobility PC1",
+    y = "Growth Rate",
+    title = "Mobility PC1 vs. Growth Rate (Early Stage)"
+  ) + 
+  theme_bw() +
+  theme(legend.position = "none",
+        panel.grid = element_blank(),
+        plot.title = element_text(size=16, face='bold'),
+        plot.caption = element_text(size=10, face = "bold.italic"),
+        axis.title = element_text(size=10))
+```
+
+```{r}
+covid.time.series %>% filter(state == "New Jersey")
+
+unique(covid.time.series$county)
+```
+
+## residual to residual analysis 
+```{r}
 library(lme4)
 # add states to the lm() model?
 covid.replication <- covid.final %>%
@@ -526,6 +606,7 @@ covid.replication <- covid.time.series.imputed %>%
   filter(date > as.Date("2020-02-01") & date < as.Date("2020-04-30"))
 mobility.active.replication.lm <- lm(growth.rate.lag ~ covid.mobility.pca, data = covid.replication)
 summary(mobility.active.replication.lm)
+# r squared = 0.01416, p = 4.13e-07 ***, coef = 0.0002790, df = 1798
 
 mobility.active.replication.res <- residuals(mobility.active.replication.lm)
 # retail and recreation
@@ -534,7 +615,7 @@ retail.bottom.res <- residuals(retail.active.replication.lm)
 # below is lm(residual ~ residual)
 retail.replication.lm <- lm(mobility.active.replication.res ~ retail.bottom.res)
 retail.replication.sum <- summary(retail.replication.lm)
-# r squared = 0.0007494, p = 0.246
+# r squared = 0.0007494, p = 0.246, coef = -5.279e-04
 
 
 # grocery and pharmacy
@@ -543,7 +624,7 @@ grocery.pharmacy.mobility.replication.res <- residuals(grocery.pharmacy.mobility
 # below is lm(residual ~ residual)
 grocery.replication.lm <- lm(mobility.active.replication.res ~ grocery.pharmacy.mobility.replication.res)
 grocery.replication.sum <- summary(grocery.replication.lm)
-# r squared =   8.811e-05, p = 0.691
+# r squared =   8.811e-05, p = 0.691, coef = -8.864e-05
 
 # # parks
 # parks.mobility.replication.lm <- lm(parks.avg ~ mobility.pca.avg, data = covid.final)
@@ -559,7 +640,7 @@ transit.mobility.replication.lm <- lm(transit_stations_percent_change_from_basel
 transit.mobility.replication.res <- residuals(transit.mobility.replication.lm)
 transit.replication.lm <- lm(mobility.active.replication.res ~ transit.mobility.replication.res)
 transit.replication.sum <- summary(transit.replication.lm)
-# r squared = 8.148e-05, p = 0.702
+# r squared = 8.148e-05, p = 0.702, coef = 1.435e-04
 
 # workplace
 workplace.mobility.replication.lm <- lm(workplaces_percent_change_from_baseline ~ covid.mobility.pca, data = covid.replication)
@@ -567,7 +648,7 @@ workplace.mobility.replication.res <- residuals(workplace.mobility.replication.l
 # below is lm(residual ~ residual)
 workplace.replication.lm <- lm(mobility.active.replication.res ~ workplace.mobility.replication.res)
 workplace.replication.sum <- summary(workplace.replication.lm)
-# r squared =  0.0008539, p= 0.215
+# r squared =  0.0008539, p= 0.215, coef = 3.878e-04
 ```
 
 
@@ -577,6 +658,7 @@ covid.new <- covid.time.series.imputed %>%
   filter(date > as.Date("2020-05-01") & date < as.Date("2020-12-31"))
 mobility.active.new.lm <- lm(growth.rate.lag ~ covid.mobility.pca, data = covid.new)
 summary(mobility.active.new.lm)
+# r squared = 9.37e-06, p = 0.811 , coef = 5.816e-05, df = 6073
 
 mobility.active.new.res <- residuals(mobility.active.new.lm)
 # retail and recreation
