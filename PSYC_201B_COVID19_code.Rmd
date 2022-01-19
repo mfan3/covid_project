@@ -1,7 +1,7 @@
 ---
 title: "PSYC_201B_COVID_codes"
 author: Hyojeong(Jenny) Yoo, Jinah Kim, Juanshu(Sky) Wu, Muqing Fan, Xiangyu(Alaric) Wei, Yuchen(Eva) Liu  
-date: "2/28/2021"
+date: "3/18/2021"
 output: 
   html_document:
     toc: true
@@ -17,6 +17,8 @@ In this file, we cleaned and explored our following datasets:
 - **JHU covid data (curren)**: https://github.com/CSSEGISandData/COVID-19  
 - **Google mobility reports (current)**: https://www.google.com/covid19/mobility/?hl=en  
 The JHU COVID-19 date provided us with historical covid progressions. Mobility data provided us relevant information during the pandemic. All datasets are analyzed on state-level.
+
+Some data cleaning codes are commented out because they take a long time to run. We saved the in-progress results for each step instead for time efficiency. 
 
 # Data Cleaning 
 Importing packages
@@ -208,6 +210,7 @@ StateMonthMobility <- US_Region_2020_mobility %>%
 
 ## growth rate 
 ```{r, message=FALSE, warning=FALSE}
+# start running here~~~~~!!!!
 covid.mob.svi <- readRDS('datasets/covid mobility svi.Rds')
 # covid.mob.svi <- readRDS('datasets/covid mobility svi moving average.Rds')
 # dim(covid.mob.svi) # 1311362, 11
@@ -289,7 +292,6 @@ saveRDS(covid.time.series, file = "datasets/covid time series.Rds")
 
 ## PCA 
 ```{r, message=FALSE}
-# start running here~~~~~!!!!
 covid.time.series <- readRDS("datasets/covid time series.Rds")
 # dim(covid.time.series) # 985962, 12
 
@@ -536,11 +538,6 @@ covid.time.series.imputed %>%
         axis.title = element_text(size=10))
 ```
 
-```{r}
-covid.time.series %>% filter(state == "New Jersey")
-
-unique(covid.time.series$county)
-```
 
 ## residual to residual analysis 
 ```{r}
@@ -626,14 +623,6 @@ grocery.replication.lm <- lm(mobility.active.replication.res ~ grocery.pharmacy.
 grocery.replication.sum <- summary(grocery.replication.lm)
 # r squared =   8.811e-05, p = 0.691, coef = -8.864e-05
 
-# # parks
-# parks.mobility.replication.lm <- lm(parks.avg ~ mobility.pca.avg, data = covid.final)
-# # below is lm(residual ~ residual)
-# parks.mobility.replication.res <- residuals(parks.mobility.replication.lm)
-# parks.replication.lm <- lm(mobility.active.replication.res ~ parks.mobility.replication.res)
-# parks.replication.sum <- summary(parks.replication.lm)
-# # r squared = 0.07035
-
 # transit
 transit.mobility.replication.lm <- lm(transit_stations_percent_change_from_baseline ~ covid.mobility.pca, data = covid.replication)
 # below is lm(residual ~ residual)
@@ -699,161 +688,5 @@ workplace.new.sum <- summary(workplace.new.lm)
 
 
 
-```{r}
-residential.graph <- 
-    ggplot(data=covid.replication,aes(x=mobility.active.country.res,y=retail.bottom.res)) + 
-    geom_jitter(colour="dark green", alpha=0.7) +
-    geom_smooth(method = "lm",
-              formula = y ~ x,
-              col = "dark green") +
-    labs(x = "residuals of mobility mean ~ residential mean",
-         y = "residuals of active ~ mobility mean") +
-    theme_bw() +
-    ggtitle("linear regression of retail residual on mobility average residual")
 
-
-covid.time.series.imputed %>% 
-  filter(county %in% covid.replication.states) %>%
-#  subset(!county %in% c("New York Suffolk County", "New York Queens County", "California Los Angeles County", "Pennsylvania Philadelphia County", "Texas Bextar County")) %>% 
-  ggplot(aes(x = covid.mobility.pca, y = growth.rate, color = county)) +
-  geom_point(size = 0.2, alpha = 0.2) +
-  geom_smooth(method = "lm", se  = FALSE) +
-  theme(legend.position = 'none')
-
-
-covid.replication %>%
-  ggplot(aes(x = mobility.pca.avg,y = growth.rate.avg)) + 
-  geom_point() 
-
-
-
-```
-
-
-
-
-
-
-```{r}
-final.state = sapply(strsplit(covid.final$county, ' '), function(x) x[1])
-covid.final.1 <- covid.final 
-covid.final.1$state = final.state
-unique(covid.final.1$state)
-covid.nh <- covid.final.1 %>%
-  filter(state == "New")
-
-
-
-```
-
-
-
-```{r}
-covid.ca <- covid.final.1 %>%
-  filter(state == "California")
-
-mobility.active.ca.lm <- lm(growth.rate.avg ~ mobility.pca.avg, data = covid.ca)
-mobility.active.ca.res <- residuals(mobility.active.ca.lm)
-# retail and recreation
-retail.active.ca.lm <- lm(retail.recreation.avg ~ mobility.pca.avg, data = covid.ca)
-retail.ca.res <- residuals(retail.active.ca.lm)
-# below is lm(residual ~ residual)
-retail.ca.lm <- lm(mobility.active.ca.res ~ retail.ca.res)
-retail.ca.sum <- summary(retail.ca.lm)
-# r squared = 0.001367, p = 0.262
-
-
-# grocery and pharmacy
-grocery.pharmacy.mobility.ca.lm <- lm(grocery.pharmacy.avg ~ mobility.pca.avg, data = covid.ca)
-grocery.pharmacy.mobility.ca.res <- residuals(grocery.pharmacy.mobility.ca.lm)
-# below is lm(residual ~ residual)
-grocery.ca.lm <- lm(mobility.active.ca.res ~ grocery.pharmacy.mobility.ca.res)
-grocery.ca.sum <- summary(grocery.ca.lm)
-# r squared =   0.01534, p = 0.00016 ***
-
-# parks
-#parks.mobility.country.lm <- lm(parks.avg ~ mobility.pca.avg, data = covid.final)
-# below is lm(residual ~ residual)
-#parks.mobility.country.res <- residuals(parks.mobility.country.lm)
-#parks.country.lm <- lm(mobility.active.country.res ~ parks.mobility.country.res)
-#parks.country.sum <- summary(parks.country.lm)
-# r squared = 0.07035
-
-# transit
-transit.mobility.ca.lm <- lm(transit.avg ~ mobility.pca.avg, data = covid.ca)
-# below is lm(residual ~ residual)
-transit.mobility.ca.res <- residuals(transit.mobility.ca.lm)
-transit.ca.lm <- lm(mobility.active.ca.res ~ transit.mobility.ca.res)
-transit.ca.sum <- summary(transit.ca.lm)
-# r squared = 0.002228, p = 0.152
-
-# workplace
-workplace.mobility.ca.lm <- lm(workplace.avg ~ mobility.pca.avg, data = covid.ca)
-workplace.mobility.ca.res <- residuals(workplace.mobility.ca.lm)
-# below is lm(residual ~ residual)
-workplace.ca.lm <- lm(mobility.active.ca.res ~ workplace.mobility.ca.res)
-workplace.ca.sum <- summary(workplace.ca.lm)
-# r squared =  0.002153, p= 0.159
-
-residual.ca.lm <- lm(growth.rate.avg ~ mobility.pca.avg + retail.ca.res + grocery.pharmacy.mobility.ca.res + transit.mobility.ca.res + workplace.mobility.ca.res, data = covid.ca)
-summary(residual.ca.lm)
-summary(mobility.active.ca.lm)
-# positive coefficient, r-suqred = 0.01447, p = 0.000247 ***
-
-```
-
-
-```{r}
-covid.tx <- covid.final.1 %>%
-  filter(state == "Texas")
-
-mobility.active.tx.lm <- lm(growth.rate.avg ~ mobility.pca.avg, data = covid.tx)
-mobility.active.tx.res <- residuals(mobility.active.tx.lm)
-# retail and recreation
-retail.active.tx.lm <- lm(retail.recreation.avg ~ mobility.pca.avg, data = covid.tx)
-retail.tx.res <- residuals(retail.active.tx.lm)
-# below is lm(residual ~ residual)
-retail.tx.lm <- lm(mobility.active.tx.res ~ retail.bottom.res)
-retail.tx.sum <- summary(retail.tx.lm)
-# r squared = 4.913e-05, p = 0.784
-
-
-# grocery and pharmacy
-grocery.pharmacy.mobility.tx.lm <- lm(grocery.pharmacy.avg ~ mobility.pca.avg, data = covid.tx)
-grocery.pharmacy.mobility.tx.res <- residuals(grocery.pharmacy.mobility.tx.lm)
-# below is lm(residual ~ residual)
-grocery.tx.lm <- lm(mobility.active.tx.res ~ grocery.pharmacy.mobility.tx.res)
-grocery.tx.sum <- summary(grocery.tx.lm)
-# r squared =  0.01775, p = 1.65e-07 ***
-
-# parks
-#parks.mobility.country.lm <- lm(parks.avg ~ mobility.pca.avg, data = covid.final)
-# below is lm(residual ~ residual)
-#parks.mobility.country.res <- residuals(parks.mobility.country.lm)
-#parks.country.lm <- lm(mobility.active.country.res ~ parks.mobility.country.res)
-#parks.country.sum <- summary(parks.country.lm)
-# r squared = 0.07035
-
-# transit
-transit.mobility.tx.lm <- lm(transit.avg ~ mobility.pca.avg, data = covid.tx)
-# below is lm(residual ~ residual)
-transit.mobility.tx.res <- residuals(transit.mobility.tx.lm)
-transit.tx.lm <- lm(mobility.active.tx.res ~ transit.mobility.tx.res)
-transit.tx.sum <- summary(transit.tx.lm)
-# r squared = 3.697e-05, p = 0.812
-
-# workplace
-workplace.mobility.tx.lm <- lm(workplace.avg ~ mobility.pca.avg, data = covid.tx)
-workplace.mobility.tx.res <- residuals(workplace.mobility.tx.lm)
-# below is lm(residual ~ residual)
-workplace.tx.lm <- lm(mobility.active.tx.res ~ workplace.mobility.tx.res)
-workplace.tx.sum <- summary(workplace.tx.lm)
-# r squared =  0.03123, p = 3.2e-12 ***
-
-residual.tx.lm <- lm(growth.rate.avg ~ mobility.pca.avg + retail.tx.res + grocery.pharmacy.mobility.tx.res + transit.mobility.tx.res + workplace.mobility.tx.res, data = covid.tx)
-summary(residual.lm)
-summary(mobility.active.tx.lm)
-# negative coefficient, r-squared = 0.02968, p = 1.12e-11 ***
-
-```
 
